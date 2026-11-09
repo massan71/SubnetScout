@@ -20,6 +20,10 @@ swift test                     # test (incluso uno scan reale di 127.0.0.1)
 
 Per lavorare in Xcode: `open Package.swift`.
 
+Icona: `swift scripts/make-icon.swift` rigenera `Resources/AppIcon.icns` (disegnata in CoreGraphics).
+
+Release: `scripts/release.sh 0.1.0 release-notes/0.1.0.md` (test, build universale, zip verificato, tag e release su GitHub).
+
 Se `xcode-select` punta ai Command Line Tools, anteponi
 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
 
@@ -91,7 +95,8 @@ Tests/ScanKitTests/       Swift Testing con fixture XML + scan reale di localhos
 - [ ] Scan programmati (`launchd`) e notifiche sui nuovi dispositivi
 - [ ] App nella menu bar
 - [ ] Mappa visuale della rete
-- [ ] Icona dell'app, firma Developer ID e notarizzazione
+- [x] Icona dell'app
+- [ ] Firma Developer ID e notarizzazione
 
 ## Licenza
 
