@@ -133,7 +133,7 @@ public enum ReportGenerator {
         rows += row("Server DHCP", n.dhcpServer ?? "—")
         rows += row("DNS assegnati", n.dnsServers.joined(separator: ", ").nonEmpty ?? "—")
         rows += row("Ricerca DHCP non autorizzati", n.dhcpProbed
-                    ? (n.dhcpOffers.isEmpty ? "nessuna offerta ricevuta" : n.dhcpOffers.map(\.server).joined(separator: ", "))
+                    ? (n.dhcpOffers.isEmpty ? "nessuna risposta alla sonda (non conclusivo)" : n.dhcpOffers.map(\.server).joined(separator: ", "))
                     : "non eseguita (richiede amministratore e profilo Standard/Completo)")
         let upnp = n.upnpGateways.map { gw in
             "\(gw.displayName) (\(gw.ip)): " + (gw.mappings.isEmpty ? "nessuna porta inoltrata" : "\(gw.mappings.count) porte inoltrate")

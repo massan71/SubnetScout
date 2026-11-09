@@ -39,7 +39,7 @@ public enum UPnPInspector {
 
     /// IP → LOCATION per ogni dispositivo che si annuncia come Internet Gateway Device.
     /// `sendError` è valorizzato se nessun pacchetto è partito.
-    static func ssdpSearch(extraTargets: [String], timeout: TimeInterval) -> (responses: [String: String], sendError: String?) {
+    public static func ssdpSearch(extraTargets: [String], timeout: TimeInterval) -> (responses: [String: String], sendError: String?) {
         let fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
         guard fd >= 0 else { return ([:], String(cString: strerror(errno))) }
         defer { close(fd) }
@@ -109,7 +109,7 @@ public enum UPnPInspector {
 
     // MARK: Descrizione e port mapping
 
-    static func inspect(ip: String, location: String) async -> UPnPGateway? {
+    public static func inspect(ip: String, location: String) async -> UPnPGateway? {
         guard let url = URL(string: location), url.scheme == "http", url.host == ip else { return nil }
         guard let xml = await fetch(URLRequest(url: url, timeoutInterval: 4)) else { return nil }
         let desc = DeviceDescription.parse(xml)

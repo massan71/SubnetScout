@@ -19,6 +19,9 @@ public struct NetworkContext: Codable, Hashable, Sendable {
     /// Dispositivi UPnP Internet Gateway trovati in LAN.
     public var upnpGateways: [UPnPGateway]
     public var upnpProbed: Bool
+    /// true se macOS ha bloccato l'accesso alla rete locale (tabella ARP vuota):
+    /// controllo ARP spoofing e UPnP non sono affidabili.
+    public var localNetworkBlocked: Bool?
     /// Motivo per cui la ricerca UPnP non è stata possibile (es. permesso «Rete locale» negato).
     public var upnpError: String?
 

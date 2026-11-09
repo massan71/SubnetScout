@@ -28,8 +28,10 @@ public struct ScanEngine: Sendable {
         let xml = try await executor.execute(profile: profile, targets: targets, onProgress: onProgress)
         let run = try NmapXMLParser.parse(xml)
         let hosts = enrich(run.hosts)
-        var context = networkContext(hosts: hosts, runScripts: run.runScripts)
-        if inspectUPnP {
+        var context = networkContext(hosts: hosts, runScripts: run.runScripts, nmapArgs: run.args ?? "")
+        if context.localNetworkBlocked == true {
+            context.upnpError = Self.localNetworkMessage
+        } else if inspectUPnP {
             do {
                 context.upnpGateways = try await UPnPInspector.discover(extraTargets: [context.gatewayIP].compactMap { $0 })
                 context.upnpProbed = true
@@ -53,18 +55,27 @@ public struct ScanEngine: Sendable {
     }
 
     /// Gateway, lease DHCP e offerte DHCP (se è stato eseguito broadcast-dhcp-discover).
-    func networkContext(hosts: [Host], runScripts: [ScriptOutput]) -> NetworkContext {
+    public static let localNetworkMessage =
+        "macOS blocca l'accesso alla rete locale per SubnetScout: attiva il permesso in Impostazioni di Sistema › Privacy e sicurezza › Rete locale, poi riapri l'app."
+
+    func networkContext(hosts: [Host], runScripts: [ScriptOutput], nmapArgs: String) -> NetworkContext {
         let route = NetworkInfo.defaultRoute()
+        let arp = NetworkInfo.arpTable()
         let iface = route.interface.flatMap { name in NetworkInfo.interfaces().first { $0.name == name } }
         let lease = route.interface.flatMap(NetworkInfo.dhcpLease(interface:))
         let gatewayMAC = hosts.first { $0.ip == route.gateway }?.mac
-            ?? route.gateway.flatMap { NetworkInfo.arpTable()[$0] }
+            ?? route.gateway.flatMap { arp[$0] }
         let dhcpScript = runScripts.first { $0.id == "broadcast-dhcp-discover" }
-        return NetworkContext(interface: route.interface, localIP: iface?.ip, gatewayIP: route.gateway,
-                              gatewayMAC: gatewayMAC, dhcpServer: lease?.server,
-                              dhcpRouters: lease?.routers ?? [], dnsServers: lease?.dnsServers ?? [],
-                              dhcpOffers: dhcpScript.map { DHCPOffer.parse($0.output) } ?? [],
-                              dhcpProbed: dhcpScript != nil)
+        var context = NetworkContext(interface: route.interface, localIP: iface?.ip, gatewayIP: route.gateway,
+                                     gatewayMAC: gatewayMAC, dhcpServer: lease?.server,
+                                     dhcpRouters: lease?.routers ?? [], dnsServers: lease?.dnsServers ?? [],
+                                     dhcpOffers: dhcpScript.map { DHCPOffer.parse($0.output) } ?? [],
+                                     // Senza risposte lo script non produce output: conta che sia stato eseguito.
+                                     dhcpProbed: dhcpScript != nil || nmapArgs.contains("broadcast-dhcp-discover"))
+        // Su una LAN attiva la tabella ARP contiene almeno il gateway: se è vuota,
+        // macOS sta negando il permesso «Rete locale».
+        context.localNetworkBlocked = route.gateway != nil && iface != nil && arp.isEmpty
+        return context
     }
 
     static func sorted(_ findings: [Finding]) -> [Finding] {

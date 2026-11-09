@@ -14,6 +14,13 @@ struct NetworkPanel: View {
     var body: some View {
         if let net = result.network {
             Form {
+                if net.localNetworkBlocked == true {
+                    Section {
+                        Label(ScanEngine.localNetworkMessage + " Fino ad allora i controlli ARP spoofing e UPnP non sono affidabili.",
+                              systemImage: "lock.trianglebadge.exclamationmark")
+                            .foregroundStyle(.orange)
+                    }
+                }
                 Section("Problemi di rete") {
                     let issues = result.findings.filter { Self.networkRules.contains($0.ruleID) }
                     if issues.isEmpty {
@@ -45,7 +52,7 @@ struct NetworkPanel: View {
                     LabeledContent("DHCP non autorizzati") {
                         if net.dhcpProbed {
                             Text(net.dhcpOffers.isEmpty
-                                 ? "Nessuna offerta ricevuta"
+                                 ? "Nessuna risposta alla sonda, neanche dal server atteso: alcuni router non rispondono, quindi il controllo non è conclusivo"
                                  : net.dhcpOffers.map { "\($0.server)\($0.offeredIP.map { " → \($0)" } ?? "")" }.joined(separator: "\n"))
                         } else {
                             Text("Non controllato: serve «Come amministratore» con profilo Standard o Completo")

@@ -41,6 +41,8 @@ public enum ScanProfile: String, Codable, CaseIterable, Identifiable, Sendable {
     static let auditScriptsUDP = ["snmp-info", "dns-recursion", "upnp-info"]
     /// Script broadcast (categoria «safe»), eseguiti una volta prima degli host. Richiedono root.
     static let networkScriptsPrivileged = ["broadcast-dhcp-discover"]
+    /// La sonda DHCP usa il MAC reale del Mac: molti router ignorano i MAC casuali.
+    static let networkScriptArgs = "broadcast-dhcp-discover.mac=native"
 
     /// Porte UDP interrogate nel profilo completo (solo con privilegi).
     static let udpPorts = "53,67,123,137,161,500,1900,5353"
@@ -59,13 +61,15 @@ public enum ScanProfile: String, Codable, CaseIterable, Identifiable, Sendable {
         case .standard:
             let scripts = Self.auditScriptsTCP + (privileged ? Self.networkScriptsPrivileged : [])
             args += ["-sV", "--script", scripts.joined(separator: ",")]
+            if privileged { args += ["--script-args", Self.networkScriptArgs] }
             if privileged { args += ["-sS", "-O", "--osscan-limit"] }
         case .full:
             if privileged {
                 args += ["-sS", "-sU", "-O", "--osscan-limit",
                          "-p", "T:1-65535,U:\(Self.udpPorts)",
                          "--script", (Self.auditScriptsTCP + Self.auditScriptsUDP + Self.networkScriptsPrivileged)
-                            .joined(separator: ",")]
+                            .joined(separator: ","),
+                         "--script-args", Self.networkScriptArgs]
             } else {
                 args += ["-p-", "--script", Self.auditScriptsTCP.joined(separator: ",")]
             }

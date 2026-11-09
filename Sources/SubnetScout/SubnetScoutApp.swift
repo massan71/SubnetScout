@@ -2,6 +2,17 @@ import SwiftUI
 import AppKit
 
 @main
+enum Entry {
+    static func main() {
+        // SubnetScout --diagnose-network: controlla rete locale, ARP, DHCP e UPnP con
+        // i permessi e le impostazioni reali dell'app, stampa il risultato ed esce.
+        if CommandLine.arguments.contains("--diagnose-network") {
+            Diagnostics.runAndExit()
+        }
+        SubnetScoutApp.main()
+    }
+}
+
 struct SubnetScoutApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel()

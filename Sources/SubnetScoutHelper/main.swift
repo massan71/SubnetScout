@@ -16,24 +16,15 @@ let log = Logger(subsystem: HelperConstants.helperIdentifier, category: "helper"
 
 // MARK: - Requisito di firma del client
 
-/// Se il helper è firmato con un Team ID (Developer ID) il client deve avere la
-/// stessa firma Apple e lo stesso team; con firma ad-hoc (sviluppo) si può
-/// verificare solo l'identificatore.
+/// Il client deve essere firmato come il helper: stesso Team ID (Developer ID),
+/// stesso certificato radice (certificato proprio) oppure, con firma ad-hoc in
+/// sviluppo, almeno lo stesso identificatore.
 func clientRequirement() -> String {
-    let base = "identifier \"\(HelperConstants.appIdentifier)\""
-    var code: SecCode?
-    var staticCode: SecStaticCode?
-    var info: CFDictionary?
-    guard SecCodeCopySelf([], &code) == errSecSuccess, let code,
-          SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess, let staticCode,
-          SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
-          let dict = info as? [String: Any],
-          let team = dict[kSecCodeInfoTeamIdentifier as String] as? String, !team.isEmpty
-    else {
+    let kind = CodeSigning.current()
+    if kind == .adHoc {
         log.warning("Helper con firma ad-hoc: il client viene verificato solo per identificatore")
-        return base
     }
-    return "anchor apple generic and \(base) and certificate leaf[subject.OU] = \"\(team)\""
+    return CodeSigning.requirement(forPeer: HelperConstants.appIdentifier, signedLike: kind)
 }
 
 // MARK: - Spegnimento quando inattivo

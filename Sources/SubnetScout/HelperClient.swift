@@ -97,7 +97,7 @@ enum HelperClient {
             c.exportedObject = receiver
         }
         // Verifichiamo anche noi chi risponde sul servizio Mach.
-        c.setCodeSigningRequirement("identifier \"\(HelperConstants.helperIdentifier)\"")
+        c.setCodeSigningRequirement(CodeSigning.requirement(forPeer: HelperConstants.helperIdentifier))
         c.resume()
         return c
     }

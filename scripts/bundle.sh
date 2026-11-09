@@ -7,13 +7,20 @@
 #
 #   SIGN_IDENTITY="Developer ID Application: Nome (TEAMID)" scripts/bundle.sh
 #     firma con Developer ID: il helper accetterà solo client dello stesso team.
-#     Senza, firma ad-hoc (solo sviluppo: il helper verifica solo l'identificatore).
+#
+# Senza SIGN_IDENTITY usa il certificato «SubnetScout Code Signing» del portachiavi,
+# se c'è: l'identità dell'app resta la stessa tra una build e l'altra, così il
+# permesso «Rete locale» e l'approvazione del helper non vanno ripetuti, e app e
+# helper si verificano a vicenda tramite il certificato. Altrimenti firma ad-hoc.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
-SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+if [[ -z "${SIGN_IDENTITY:-}" ]]; then
+  SIGN_IDENTITY="$(security find-identity -p codesigning 2>/dev/null | awk '/"SubnetScout Code Signing"/ { print $2; exit }')"
+  SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+fi
 ARCHS=(--arch arm64 --arch x86_64)
 
 swift build -c release "${ARCHS[@]}"
