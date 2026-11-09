@@ -4,6 +4,8 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>it</string>
+	<key>CFBundleDisplayName</key>
+	<string>SubnetScout</string>
 	<key>CFBundleExecutable</key>
 	<string>SubnetScout</string>
 	<key>CFBundleIconFile</key>
@@ -12,24 +14,16 @@
 	<string>net.sangalli.SubnetScout</string>
 	<key>CFBundleName</key>
 	<string>SubnetScout</string>
-	<key>CFBundleDisplayName</key>
-	<string>SubnetScout</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>14.0</string>
+	<string>2</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
-	<key>NSHighResolutionCapable</key>
-	<true/>
-	<key>NSPrincipalClass</key>
-	<string>NSApplication</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>SubnetScout analizza i dispositivi della tua rete locale per individuare servizi esposti e configurazioni a rischio.</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_http._tcp</string>
@@ -38,5 +32,11 @@
 		<string>_ipp._tcp</string>
 		<string>_airplay._tcp</string>
 	</array>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>SubnetScout analizza i dispositivi della tua rete locale per individuare servizi esposti e configurazioni a rischio.</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
 </dict>
 </plist>
