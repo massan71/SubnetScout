@@ -142,6 +142,20 @@ final class HelperService: NSObject, ScanHelperProtocol, @unchecked Sendable {
         lock.lock(); tasks[id] = task; lock.unlock()
     }
 
+    func networkProbe(reply: @escaping @Sendable (Data?, String?) -> Void) {
+        guard Self.acquireSlot() else { return reply(nil, "Troppe operazioni in corso.") }
+        Task {
+            defer { Self.releaseSlot() }
+            let probe = await NetworkProbe.run(source: "helper")
+            log.info("Sonda di rete: \(probe.arp.count) voci ARP, \(probe.upnpGateways.count) router UPnP")
+            do {
+                reply(try JSONEncoder().encode(probe), nil)
+            } catch {
+                reply(nil, error.localizedDescription)
+            }
+        }
+    }
+
     func cancelScan(id: String) {
         lock.lock(); let t = tasks[id]; lock.unlock()
         t?.cancel()

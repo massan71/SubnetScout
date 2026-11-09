@@ -1,5 +1,8 @@
 import Foundation
 import Darwin
+import os
+
+private let upnpLog = Logger(subsystem: "net.sangalli.SubnetScout", category: "upnp")
 
 /// Trova i router UPnP (Internet Gateway Device) della LAN e ne legge, in sola
 /// lettura, la tabella dei port forwarding: sono le porte che i dispositivi
@@ -74,11 +77,15 @@ public enum UPnPInspector {
             let n = withUnsafeMutablePointer(to: &from) {
                 $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { recvfrom(fd, &buffer, buffer.count, 0, $0, &len) }
             }
-            guard n > 0 else { continue }
+            guard n > 0 else {
+                if n < 0, errno != EAGAIN, errno != EWOULDBLOCK { upnpLog.info("SSDP recvfrom: \(String(cString: strerror(errno)), privacy: .public)") }
+                continue
+            }
             let ip = IPv4.format(UInt32(bigEndian: from.sin_addr.s_addr))
             let text = String(decoding: buffer[0..<n], as: UTF8.self)
             if let location = header("location", in: text), found[ip] == nil { found[ip] = location }
         }
+        upnpLog.info("SSDP: \(sent, privacy: .public) invii, errore \(sendError ?? "-", privacy: .public), risposte \(found.keys.sorted().joined(separator: ","), privacy: .public)")
         return (found, sent == 0 ? sendError : nil)
     }
 
@@ -207,44 +214,24 @@ struct DeviceDescription {
             ?? services.first { $0.serviceType.contains("WANPPPConnection") }
     }
 
+    /// Parsing a scansione di stringhe (niente libxml2): gira anche nel helper root
+    /// su dati che arrivano dalla rete, quindi deve essere semplice e sicuro sulla memoria.
     static func parse(_ xml: String) -> DeviceDescription {
-        let delegate = Delegate()
-        let parser = XMLParser(data: Data(xml.utf8))
-        parser.shouldResolveExternalEntities = false
-        parser.delegate = delegate
-        parser.parse()
-        return delegate.result
-    }
-
-    private final class Delegate: NSObject, XMLParserDelegate {
-        var result = DeviceDescription()
-        private var text = ""
-        private var serviceType: String?
-        private var controlURL: String?
-        private var inService = false
-
-        func parser(_ parser: XMLParser, didStartElement name: String, namespaceURI: String?,
-                    qualifiedName: String?, attributes: [String: String]) {
-            text = ""
-            if name == "service" { inService = true; serviceType = nil; controlURL = nil }
-        }
-
-        func parser(_ parser: XMLParser, foundCharacters string: String) { text += string }
-
-        func parser(_ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?) {
-            let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            switch name {
-            case "friendlyName" where result.friendlyName == nil: result.friendlyName = value.nonEmpty
-            case "manufacturer" where result.manufacturer == nil: result.manufacturer = value.nonEmpty
-            case "modelName" where result.modelName == nil: result.modelName = value.nonEmpty
-            case "serviceType" where inService: serviceType = value
-            case "controlURL" where inService: controlURL = value
-            case "service":
-                if let serviceType, let controlURL { result.services.append(Service(serviceType: serviceType, controlURL: controlURL)) }
-                inService = false
-            default: break
+        var d = DeviceDescription()
+        d.friendlyName = UPnPInspector.tagValue("friendlyName", in: xml)?.nonEmpty
+        d.manufacturer = UPnPInspector.tagValue("manufacturer", in: xml)?.nonEmpty
+        d.modelName = UPnPInspector.tagValue("modelName", in: xml)?.nonEmpty
+        var rest = xml[...]
+        while d.services.count < 64,
+              let open = rest.range(of: "<service>"),
+              let close = rest.range(of: "</service>", range: open.upperBound..<rest.endIndex) {
+            let block = String(rest[open.upperBound..<close.lowerBound])
+            if let type = UPnPInspector.tagValue("serviceType", in: block),
+               let control = UPnPInspector.tagValue("controlURL", in: block) {
+                d.services.append(Service(serviceType: type, controlURL: control))
             }
-            text = ""
+            rest = rest[close.upperBound...]
         }
+        return d
     }
 }

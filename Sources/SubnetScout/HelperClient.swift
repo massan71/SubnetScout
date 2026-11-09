@@ -105,9 +105,15 @@ enum HelperClient {
     struct Info: Sendable { var version: String; var nmapPath: String?; var problem: String?; var canAdopt: Bool }
 
     static func info() async throws -> Info {
+        try await withTimeout(seconds: 8) { try await infoNoTimeout() }
+    }
+
+    private static func infoNoTimeout() async throws -> Info {
         let c = makeConnection()
         defer { c.invalidate() }
-        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Info, Error>) in
+        let box = ConnectionBox(c)
+        // Annullare il task invalida la connessione: l'error handler sblocca l'attesa.
+        return try await withTaskCancellationHandler { try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Info, Error>) in
             let once = ResumeOnce(cont)
             let proxy = c.remoteObjectProxyWithErrorHandler { once.resume(throwing: HelperError.connection($0.localizedDescription)) }
             guard let helper = proxy as? ScanHelperProtocol else {
@@ -116,7 +122,7 @@ enum HelperClient {
             helper.info { version, path, problem, canAdopt in
                 once.resume(returning: Info(version: version, nmapPath: path, problem: problem, canAdopt: canAdopt))
             }
-        }
+        } } onCancel: { box.value.invalidate() }
     }
 }
 
@@ -145,6 +151,34 @@ extension HelperClient {
                 }
             }
         }
+    }
+}
+
+// MARK: - Sonda di rete
+
+extension HelperClient {
+    /// Tabella ARP e router UPnP letti dal helper.
+    static func networkProbe() async throws -> NetworkProbe {
+        try await withTimeout(seconds: 30) { try await networkProbeNoTimeout() }
+    }
+
+    private static func networkProbeNoTimeout() async throws -> NetworkProbe {
+        let c = makeConnection()
+        defer { c.invalidate() }
+        let box = ConnectionBox(c)
+        let data = try await withTaskCancellationHandler { try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Data, Error>) in
+            let once = ResumeOnce(cont)
+            let proxy = c.remoteObjectProxyWithErrorHandler { once.resume(throwing: HelperError.connection($0.localizedDescription)) }
+            guard let helper = proxy as? ScanHelperProtocol else {
+                return once.resume(throwing: HelperError.connection("proxy non valido"))
+            }
+            helper.networkProbe { json, error in
+                if let json { once.resume(returning: json) } else {
+                    once.resume(throwing: HelperError.remote(error ?? "Sonda di rete non riuscita."))
+                }
+            }
+        } } onCancel: { box.value.invalidate() }
+        return try JSONDecoder().decode(NetworkProbe.self, from: data)
     }
 }
 
@@ -237,6 +271,26 @@ struct HelperNmapExecutor: NmapExecutor {
 }
 
 // MARK: - Helper per la concorrenza
+
+struct HelperTimeout: LocalizedError {
+    var errorDescription: String? {
+        "Il helper non risponde. Se hai appena aggiornato SubnetScout, premi «Reinstalla» e riapprovalo."
+    }
+}
+
+/// Esegue `operation` con un limite di tempo: una connessione XPC verso un helper
+/// che macOS non lascia partire resterebbe altrimenti in attesa per sempre.
+func withTimeout<T: Sendable>(seconds: Double, _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+    try await withThrowingTaskGroup(of: T.self) { group in
+        group.addTask { try await operation() }
+        group.addTask {
+            try await Task.sleep(for: .seconds(seconds))
+            throw HelperTimeout()
+        }
+        defer { group.cancelAll() }
+        return try await group.next()!
+    }
+}
 
 /// Riceve l'avanzamento dal helper (chiamato su una coda XPC).
 final class ProgressReceiver: NSObject, ScanHelperClientProtocol, @unchecked Sendable {

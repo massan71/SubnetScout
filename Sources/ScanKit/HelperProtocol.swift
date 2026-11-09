@@ -7,7 +7,7 @@ public enum HelperConstants {
     public static let machServiceName = "net.sangalli.SubnetScout.helper"
     public static let plistName = "net.sangalli.SubnetScout.helper.plist"
     /// Da incrementare quando cambia il protocollo XPC.
-    public static let protocolVersion = "2"
+    public static let protocolVersion = "3"
     /// Diritto richiesto per operazioni che cambiano cosa il helper eseguirà come root.
     public static let adminRight = "system.privilege.admin"
 }
@@ -26,6 +26,9 @@ public enum HelperConstants {
     func runScan(id: String, profile: String, targets: [String],
                  reply: @escaping @Sendable (_ xml: Data?, _ error: String?) -> Void)
     func cancelScan(id: String)
+    /// Tabella ARP e router UPnP letti dal helper (non soggetto al permesso «Rete locale»).
+    /// Risponde con un NetworkProbe codificato in JSON.
+    func networkProbe(reply: @escaping @Sendable (_ json: Data?, _ error: String?) -> Void)
 }
 
 /// Callback dal helper verso l'app (avanzamento).

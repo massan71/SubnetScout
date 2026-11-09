@@ -58,10 +58,19 @@ Il helper espone via XPC solo «esegui il profilo X sui target Y». Le misure di
 Disinstallazione: dal pulsante nell'app, oppure eliminando l'app. La copia protetta di nmap
 resta: per rimuoverla `sudo rm -rf "/Library/Application Support/SubnetScout"`.
 
-**Sviluppo con firma ad-hoc**: a ogni build la firma cambia e launchd rifiuta il daemon
-(`OS_REASON_CODESIGNING`). In quel caso usa **Reinstalla** nella sidebar e riapprova in Impostazioni.
-`bundle.sh` aggiorna il bundle sul posto (non lo ricrea) per non perdere la registrazione.
-Con un certificato di sviluppo stabile (`SIGN_IDENTITY`) il problema sparisce.
+### Firma, permessi di macOS e helper
+
+- `bundle.sh` firma con il certificato **«SubnetScout Code Signing»** se è nel portachiavi, altrimenti ad-hoc.
+  Con il certificato app e helper si verificano a vicenda (`certificate root = H"…"`).
+- **Rete locale**: macOS può negare il permesso all'app anche se l'interruttore in Impostazioni è attivo, ad esempio
+  dopo aver cambiato firma o con più copie dell'app con lo stesso bundle ID. Per questo, quando l'helper è attivo,
+  è lui a leggere la tabella ARP e cercare i router UPnP: come daemon di sistema non è soggetto al permesso.
+  Senza helper la vista Rete avvisa se la rete locale è bloccata.
+- **Approvazione dell'helper**: senza un Developer ID, macOS lega l'approvazione all'hash del binario dell'helper.
+  Quando l'helper cambia, premi **Reinstalla** e riapprova. Solo una firma Developer ID evita di farlo.
+- **Una sola copia installata**: tieni l'app solo in `/Applications`. Due copie con lo stesso bundle ID confondono
+  i permessi di macOS.
+- Diagnostica: `/Applications/SubnetScout.app/Contents/MacOS/SubnetScout --diagnose-network`.
 
 ## Funzioni
 

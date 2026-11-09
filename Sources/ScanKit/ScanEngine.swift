@@ -18,27 +18,27 @@ public struct ScanEngine: Sendable {
                        previous: previous, onProgress: onProgress)
     }
 
+    /// Fornisce tabella ARP e router UPnP (dall'app o dal helper).
+    public typealias ProbeProvider = @Sendable () async -> NetworkProbe
+
     /// Scansione con un esecutore qualsiasi (es. il privileged helper).
-    /// - Parameter previous: scansione precedente dello stesso target, per le regole che
-    ///   confrontano lo stato della rete (es. MAC del gateway cambiato).
+    /// - Parameters:
+    ///   - previous: scansione precedente dello stesso target, per le regole che
+    ///     confrontano lo stato della rete (es. MAC del gateway cambiato).
+    ///   - probe: chi legge ARP e UPnP; di default l'app stessa (soggetta al permesso
+    ///     «Rete locale»). Con il helper attivo l'app passa la sonda del helper.
     public func scan(targets: [String], profile: ScanProfile, executor: any NmapExecutor,
-                     previous: ScanResult? = nil, inspectUPnP: Bool = true,
+                     previous: ScanResult? = nil, inspectUPnP: Bool = true, probe: ProbeProvider? = nil,
                      onProgress: @escaping @Sendable (Double) -> Void = { _ in }) async throws -> ScanResult {
         let started = Date()
         let xml = try await executor.execute(profile: profile, targets: targets, onProgress: onProgress)
         let run = try NmapXMLParser.parse(xml)
-        let hosts = enrich(run.hosts)
-        var context = networkContext(hosts: hosts, runScripts: run.runScripts, nmapArgs: run.args ?? "")
-        if context.localNetworkBlocked == true {
-            context.upnpError = Self.localNetworkMessage
-        } else if inspectUPnP {
-            do {
-                context.upnpGateways = try await UPnPInspector.discover(extraTargets: [context.gatewayIP].compactMap { $0 })
-                context.upnpProbed = true
-            } catch {
-                context.upnpError = error.localizedDescription
-            }
-        }
+        let probe = await (probe ?? { await NetworkProbe.run(source: "app", inspectUPnP: inspectUPnP) })()
+        let hosts = enrich(run.hosts, arp: probe.arp)
+        var context = networkContext(hosts: hosts, runScripts: run.runScripts, nmapArgs: run.args ?? "", arp: probe.arp)
+        context.upnpGateways = probe.upnpGateways
+        context.upnpError = probe.upnpError
+        context.upnpProbed = inspectUPnP && probe.upnpError == nil
         return ScanResult(
             target: targets.joined(separator: " "),
             profile: profile,
@@ -54,13 +54,12 @@ public struct ScanEngine: Sendable {
         )
     }
 
-    /// Gateway, lease DHCP e offerte DHCP (se è stato eseguito broadcast-dhcp-discover).
     public static let localNetworkMessage =
-        "macOS blocca l'accesso alla rete locale per SubnetScout: attiva il permesso in Impostazioni di Sistema › Privacy e sicurezza › Rete locale, poi riapri l'app."
+        "macOS blocca l'accesso alla rete locale per SubnetScout: attiva il permesso in Impostazioni di Sistema › Privacy e sicurezza › Rete locale, oppure installa il helper (non è soggetto a questo permesso)."
 
-    func networkContext(hosts: [Host], runScripts: [ScriptOutput], nmapArgs: String) -> NetworkContext {
+    /// Gateway, lease DHCP e offerte DHCP (se è stato eseguito broadcast-dhcp-discover).
+    func networkContext(hosts: [Host], runScripts: [ScriptOutput], nmapArgs: String, arp: [String: String]) -> NetworkContext {
         let route = NetworkInfo.defaultRoute()
-        let arp = NetworkInfo.arpTable()
         let iface = route.interface.flatMap { name in NetworkInfo.interfaces().first { $0.name == name } }
         let lease = route.interface.flatMap(NetworkInfo.dhcpLease(interface:))
         let gatewayMAC = hosts.first { $0.ip == route.gateway }?.mac
@@ -73,7 +72,7 @@ public struct ScanEngine: Sendable {
                                      // Senza risposte lo script non produce output: conta che sia stato eseguito.
                                      dhcpProbed: dhcpScript != nil || nmapArgs.contains("broadcast-dhcp-discover"))
         // Su una LAN attiva la tabella ARP contiene almeno il gateway: se è vuota,
-        // macOS sta negando il permesso «Rete locale».
+        // macOS sta negando il permesso «Rete locale» a chi ha fatto la sonda.
         context.localNetworkBlocked = route.gateway != nil && iface != nil && arp.isEmpty
         return context
     }
@@ -85,8 +84,8 @@ public struct ScanEngine: Sendable {
         }
     }
 
-    public func enrich(_ hosts: [Host]) -> [Host] {
-        let arp = NetworkInfo.arpTable()
+    public func enrich(_ hosts: [Host], arp: [String: String]? = nil) -> [Host] {
+        let arp = arp ?? NetworkInfo.arpTable()
         let gateway = NetworkInfo.defaultGateway()
         let localIPs = Set(NetworkInfo.interfaces().map(\.ip))
         return hosts.map { h in

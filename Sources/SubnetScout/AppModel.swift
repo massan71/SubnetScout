@@ -62,6 +62,9 @@ final class AppModel {
 
     // MARK: Privileged helper
 
+    /// Il helper è registrato e risponde (anche se nmap non è utilizzabile come root).
+    var helperIsReachable: Bool { if case .ready = helperState { true } else { false } }
+
     /// Come verrà eseguita la scansione con «Come amministratore» attivo.
     var usesHelper: Bool { privileged && helperState.canScan }
 
@@ -151,13 +154,20 @@ final class AppModel {
         scanStartedAt = Date()
         scanSummary = profile.name + (usesHelper ? " · helper" : privileged ? " · password" : " · utente")
 
+        // ARP e UPnP: con il helper attivo li legge lui (non è soggetto al permesso
+        // «Rete locale», che macOS può negare all'app); se fallisce, li legge l'app.
+        let probe: ScanEngine.ProbeProvider? = helperIsReachable ? { @Sendable in
+            if let p = try? await HelperClient.networkProbe() { return p }
+            return await NetworkProbe.run(source: "app")
+        } : nil
+
         // Scansione precedente dello stesso target: serve per le regole che confrontano la rete.
         let previous = history.filter { $0.target == targets.joined(separator: " ") }.max { $0.finishedAt < $1.finishedAt }
 
         scanTask = Task {
             do {
                 let result = try await engine.scan(targets: targets, profile: profile, executor: executor,
-                                                   previous: previous) { p in
+                                                   previous: previous, probe: probe) { p in
                     Task { @MainActor in
                         guard case .scanning = self.phase else { return }
                         self.phase = .scanning(progress: p)

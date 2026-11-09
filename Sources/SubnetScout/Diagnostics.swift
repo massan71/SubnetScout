@@ -30,6 +30,17 @@ enum Diagnostics {
             line("Lease DHCP", "server \(lease.server ?? "—"), router \(lease.routers.joined(separator: ",")), DNS \(lease.dnsServers.joined(separator: ","))")
         }
 
+        if HelperClient.isBundled, HelperClient.service.status == .enabled {
+            do {
+                let p = try await HelperClient.networkProbe()
+                line("Sonda del helper", "\(p.arp.count) voci ARP, router UPnP: \(p.upnpGateways.map { "\($0.displayName) (\($0.ip), \($0.mappings.count) porte)" }.joined(separator: "; ").isEmpty ? "nessuno" : p.upnpGateways.map { "\($0.displayName) (\($0.ip), \($0.mappings.count) porte)" }.joined(separator: "; "))" + (p.upnpError.map { " · \($0)" } ?? ""))
+            } catch {
+                line("Sonda del helper", "ERRORE: \(error.localizedDescription)")
+            }
+        } else {
+            line("Sonda del helper", "helper non attivo")
+        }
+
         let search = UPnPInspector.ssdpSearch(extraTargets: [route.gateway].compactMap { $0 }, timeout: 3)
         line("Risposte SSDP (IGD)", search.responses.isEmpty ? "nessuna" : search.responses.map { "\($0.key) → \($0.value)" }.joined(separator: "; "))
         if let error = search.sendError { line("Errore invio SSDP", error) }
