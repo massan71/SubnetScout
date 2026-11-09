@@ -18,7 +18,13 @@
 
 set -euo pipefail
 
-die() { echo "errore: $*" >&2; exit 1; }
+RESTORE_ON_EXIT=0
+die() {
+  echo "errore: $*" >&2
+  # exit non attiva il trap ERR: ripristina qui la versione se era già stata cambiata
+  [[ "$RESTORE_ON_EXIT" == 1 ]] && git checkout -q -- Resources/Info.plist && echo "Modifica di versione annullata." >&2
+  exit 1
+}
 
 VERSION="${1:-}"
 NOTES="${2:-}"
@@ -48,6 +54,7 @@ OLD_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")"
 BUILD=$((OLD_BUILD + 1))
 restore() { git checkout -q -- "$PLIST"; }
 trap 'echo "Interrotto: modifica di versione annullata." >&2; restore' ERR INT
+RESTORE_ON_EXIT=1
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $BUILD" "$PLIST"
 echo "Versione $VERSION (build $BUILD)"
 
@@ -74,7 +81,7 @@ for bin in SubnetScout SubnetScoutHelper; do
   ARCHS="$(lipo -archs "$APP/Contents/MacOS/$bin")"
   [[ "$ARCHS" == *arm64* && "$ARCHS" == *x86_64* ]] || die "$bin non è universale: $ARCHS"
 done
-[[ "$(codesign -d "$APP/Contents/MacOS/SubnetScoutHelper" 2>&1 | grep -o 'Identifier=.*')" == "Identifier=net.sangalli.SubnetScout.helper" ]] \
+[[ "$(codesign -dv "$APP/Contents/MacOS/SubnetScoutHelper" 2>&1 | grep '^Identifier=')" == "Identifier=net.sangalli.SubnetScout.helper" ]] \
   || die "identificatore del helper errato"
 [[ -f "$APP/Contents/Library/LaunchDaemons/net.sangalli.SubnetScout.helper.plist" ]] || die "plist del helper mancante"
 [[ -f "$APP/Contents/Resources/AppIcon.icns" ]] || die "icona mancante"
@@ -113,6 +120,7 @@ if [[ "$YES" != "--yes" ]]; then
   [[ "$answer" == "s" || "$answer" == "S" || "$answer" == "y" ]] || { restore; echo "Non pubblicato; versione ripristinata."; exit 1; }
 fi
 trap - ERR INT
+RESTORE_ON_EXIT=0
 
 MESSAGE="Release $VERSION"
 [[ -n "${RELEASE_COMMIT_TRAILER:-}" ]] && MESSAGE="$MESSAGE"$'\n\n'"$RELEASE_COMMIT_TRAILER"
