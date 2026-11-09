@@ -20,28 +20,34 @@ swift build -c release "${ARCHS[@]}"
 BIN_DIR="$(swift build -c release "${ARCHS[@]}" --show-bin-path)"
 
 APP="build/SubnetScout.app"
-# Il bundle viene assemblato a parte e poi sincronizzato su quello esistente:
-# NON va cancellato e ricreato, altrimenti macOS lo considera un'altra app e la
-# registrazione del helper (SMAppService) resta legata al bundle vecchio
-# (launchd: "copy_bundle_path … Invalid or missing Program").
-STAGE="build/.stage/SubnetScout.app"
-rm -rf "build/.stage"
+# Il bundle viene assemblato e firmato in una cartella temporanea, poi
+# sincronizzato su quello esistente. Due motivi:
+#  1. NON va cancellato e ricreato, altrimenti macOS lo considera un'altra app e
+#     la registrazione del helper (SMAppService) resta legata al bundle vecchio
+#     (launchd: "copy_bundle_path … Invalid or missing Program").
+#  2. In una cartella sincronizzata con iCloud (es. Documents) macOS rimette
+#     com.apple.FinderInfo sul bundle e codesign fallisce ("detritus not allowed").
+STAGE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/subnetscout-bundle.XXXXXX")"
+trap 'rm -rf "$STAGE_ROOT"' EXIT
+STAGE="$STAGE_ROOT/SubnetScout.app"
 mkdir -p "$STAGE/Contents/MacOS" "$STAGE/Contents/Resources" "$STAGE/Contents/Library/LaunchDaemons"
 cp "$BIN_DIR/SubnetScout" "$STAGE/Contents/MacOS/SubnetScout"
 cp "$BIN_DIR/SubnetScoutHelper" "$STAGE/Contents/MacOS/SubnetScoutHelper"
 cp Resources/Info.plist "$STAGE/Contents/Info.plist"
 cp Resources/net.sangalli.SubnetScout.helper.plist "$STAGE/Contents/Library/LaunchDaemons/"
 [[ -f Resources/AppIcon.icns ]] && cp Resources/AppIcon.icns "$STAGE/Contents/Resources/" || true
-mkdir -p "$APP"
-rsync -a --delete "$STAGE/" "$APP/"
-rm -rf "build/.stage"
-xattr -cr "$APP"   # codesign rifiuta attributi estesi ("detritus")
+xattr -cr "$STAGE"
 
 # Prima il helper (con il suo identificatore), poi l'app che lo sigilla.
 codesign --force --sign "$SIGN_IDENTITY" --options runtime --timestamp=none \
-  --identifier net.sangalli.SubnetScout.helper "$APP/Contents/MacOS/SubnetScoutHelper"
-codesign --force --sign "$SIGN_IDENTITY" --options runtime --timestamp=none "$APP"
-codesign --verify --strict "$APP"
+  --identifier net.sangalli.SubnetScout.helper "$STAGE/Contents/MacOS/SubnetScoutHelper"
+codesign --force --sign "$SIGN_IDENTITY" --options runtime --timestamp=none "$STAGE"
+codesign --verify --strict "$STAGE"
+
+# La firma sta nei file (_CodeSignature e Mach-O): copiandoli resta valida.
+mkdir -p "$APP"
+rsync -a --delete "$STAGE/" "$APP/"
+codesign --verify "$APP"
 echo "✓ $APP (firma: $SIGN_IDENTITY)"
 
 [[ "${1:-}" == "--open" ]] && open "$APP"
