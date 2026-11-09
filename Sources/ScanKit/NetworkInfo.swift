@@ -52,14 +52,49 @@ public enum NetworkInfo {
 
     /// Gateway predefinito (`route -n get default`).
     public static func defaultGateway() -> String? {
-        guard let out = try? Shell.run("/sbin/route", ["-n", "get", "default"]) else { return nil }
+        defaultRoute().gateway
+    }
+
+    /// Gateway e interfaccia della rotta predefinita.
+    public static func defaultRoute() -> (gateway: String?, interface: String?) {
+        guard let out = try? Shell.run("/sbin/route", ["-n", "get", "default"]) else { return (nil, nil) }
+        var gateway: String?, interface: String?
         for line in out.split(separator: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.hasPrefix("gateway:") {
-                return trimmed.dropFirst("gateway:".count).trimmingCharacters(in: .whitespaces)
+                gateway = trimmed.dropFirst("gateway:".count).trimmingCharacters(in: .whitespaces)
+            } else if trimmed.hasPrefix("interface:") {
+                interface = trimmed.dropFirst("interface:".count).trimmingCharacters(in: .whitespaces)
             }
         }
-        return nil
+        return (gateway, interface)
+    }
+
+    public struct DHCPLease: Equatable, Sendable {
+        public var server: String?
+        public var routers: [String] = []
+        public var dnsServers: [String] = []
+    }
+
+    /// Dati del lease DHCP dell'interfaccia (`ipconfig getpacket`), senza privilegi.
+    public static func dhcpLease(interface: String) -> DHCPLease? {
+        guard interface.allSatisfy({ $0.isLetter || $0.isNumber }),
+              let out = try? Shell.run("/usr/sbin/ipconfig", ["getpacket", interface]), !out.isEmpty else { return nil }
+        return parseDHCPPacket(out)
+    }
+
+    static func parseDHCPPacket(_ out: String) -> DHCPLease {
+        // "server_identifier (ip): 10.0.1.1"   "router (ip_mult): {10.0.1.1}"
+        func values(_ key: String) -> [String] {
+            guard let line = out.split(separator: "\n").first(where: { $0.hasPrefix(key + " ") }),
+                  let colon = line.firstIndex(of: ":") else { return [] }
+            return line[line.index(after: colon)...]
+                .trimmingCharacters(in: CharacterSet(charactersIn: " {}"))
+                .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        }
+        return DHCPLease(server: values("server_identifier").first,
+                         routers: values("router"),
+                         dnsServers: values("domain_name_server"))
     }
 
     /// Tabella ARP del Mac: IP → MAC normalizzato (AA:BB:CC:DD:EE:FF).

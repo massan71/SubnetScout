@@ -197,10 +197,12 @@ public struct ScanResult: Codable, Hashable, Sendable, Identifiable {
     public var nmapArgs: String?
     public var hosts: [Host]
     public var findings: [Finding]
+    /// Contesto di rete (gateway, DHCP, DNS, UPnP). Assente nelle scansioni salvate dalla 0.1.0.
+    public var network: NetworkContext?
 
     public init(id: UUID = UUID(), target: String, profile: ScanProfile, privileged: Bool,
                 startedAt: Date, finishedAt: Date, nmapVersion: String? = nil, nmapArgs: String? = nil,
-                hosts: [Host], findings: [Finding]) {
+                hosts: [Host], findings: [Finding], network: NetworkContext? = nil) {
         self.id = id
         self.target = target
         self.profile = profile
@@ -211,6 +213,7 @@ public struct ScanResult: Codable, Hashable, Sendable, Identifiable {
         self.nmapArgs = nmapArgs
         self.hosts = hosts
         self.findings = findings
+        self.network = network
     }
 
     public var duration: TimeInterval { finishedAt.timeIntervalSince(startedAt) }

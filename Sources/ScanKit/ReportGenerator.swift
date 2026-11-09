@@ -53,6 +53,8 @@ public enum ReportGenerator {
             body += "</ul></section>"
         }
 
+        if let net = r.network { body += networkSection(net) }
+
         // Problemi
         body += "<section><h2>Problemi rilevati (\(r.findings.count))</h2>"
         if r.findings.isEmpty {
@@ -124,6 +126,31 @@ public enum ReportGenerator {
         """
     }
 
+    static func networkSection(_ n: NetworkContext) -> String {
+        func row(_ k: String, _ v: String) -> String { "<tr><th>\(esc(k))</th><td>\(esc(v))</td></tr>" }
+        var rows = ""
+        rows += row("Gateway", [n.gatewayIP, n.gatewayMAC].compactMap { $0 }.joined(separator: " · ").nonEmpty ?? "—")
+        rows += row("Server DHCP", n.dhcpServer ?? "—")
+        rows += row("DNS assegnati", n.dnsServers.joined(separator: ", ").nonEmpty ?? "—")
+        rows += row("Ricerca DHCP non autorizzati", n.dhcpProbed
+                    ? (n.dhcpOffers.isEmpty ? "nessuna offerta ricevuta" : n.dhcpOffers.map(\.server).joined(separator: ", "))
+                    : "non eseguita (richiede amministratore e profilo Standard/Completo)")
+        let upnp = n.upnpGateways.map { gw in
+            "\(gw.displayName) (\(gw.ip)): " + (gw.mappings.isEmpty ? "nessuna porta inoltrata" : "\(gw.mappings.count) porte inoltrate")
+        }
+        rows += row("Router UPnP", n.upnpError ?? (n.upnpProbed ? (upnp.joined(separator: "; ").nonEmpty ?? "nessuno") : "non controllato"))
+        var html = "<section><h2>Rete</h2><table class=\"kv\"><tbody>\(rows)</tbody></table>"
+        let mappings = n.upnpGateways.flatMap { gw in gw.mappings.map { (gw, $0) } }
+        if !mappings.isEmpty {
+            html += "<h3>Porte aperte verso Internet (UPnP)</h3><table><thead><tr><th>Router</th><th>Porta esterna</th><th>Destinazione</th><th>Descrizione</th><th>Attiva</th></tr></thead><tbody>"
+            for (gw, m) in mappings {
+                html += "<tr><td>\(esc(gw.displayName))</td><td><code>\(m.externalPort)/\(esc(m.proto.lowercased()))</code></td><td><code>\(esc(m.internalClient)):\(m.internalPort)</code></td><td>\(esc(m.description))</td><td>\(m.enabled ? "sì" : "no")</td></tr>"
+            }
+            html += "</tbody></table>"
+        }
+        return html + "</section>"
+    }
+
     static func executiveSummary(_ r: ScanResult) -> String {
         let risk = r.risk
         let crit = risk.counts[.critical] ?? 0, high = risk.counts[.high] ?? 0, med = risk.counts[.medium] ?? 0
@@ -171,7 +198,7 @@ public enum ReportGenerator {
     table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:block;overflow-x:auto}
     th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
     th{font-size:12px;text-transform:uppercase;color:var(--muted);background:var(--code)}td.ports{font-size:13px;max-width:260px}
-    .appendix h3{margin:22px 0 8px}footer{margin-top:40px;font-size:12px}
+    .appendix h3{margin:22px 0 8px}table.kv th{width:240px;text-transform:none;font-size:14px}footer{margin-top:40px;font-size:12px}
     @media print{body{background:#fff}main{padding:0}.finding,table{border-color:#ccc}h2{break-after:avoid}}
     """
 

@@ -151,9 +151,13 @@ final class AppModel {
         scanStartedAt = Date()
         scanSummary = profile.name + (usesHelper ? " · helper" : privileged ? " · password" : " · utente")
 
+        // Scansione precedente dello stesso target: serve per le regole che confrontano la rete.
+        let previous = history.filter { $0.target == targets.joined(separator: " ") }.max { $0.finishedAt < $1.finishedAt }
+
         scanTask = Task {
             do {
-                let result = try await engine.scan(targets: targets, profile: profile, executor: executor) { p in
+                let result = try await engine.scan(targets: targets, profile: profile, executor: executor,
+                                                   previous: previous) { p in
                     Task { @MainActor in
                         guard case .scanning = self.phase else { return }
                         self.phase = .scanning(progress: p)

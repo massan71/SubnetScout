@@ -172,6 +172,38 @@ public enum AuditEngine {
                 }
             }
 
+            if let dh = p.script("ssl-dh-params"), dh.contains("VULNERABLE") {
+                add("tls-weak-dh", .medium, "Parametri Diffie-Hellman deboli",
+                    "Lo scambio di chiavi usa gruppi DH piccoli o comuni (attacchi tipo Logjam).",
+                    "Usa gruppi DH da almeno 2048 bit oppure solo ECDHE.", p, evidence: firstLines(dh, max: 3))
+            }
+
+            // --- Web
+            if let headers = p.script("http-security-headers"), headers.contains("HSTS not configured") {
+                add("http-no-hsts", .low, "HTTPS senza HSTS",
+                    "Il sito non impone HTTPS al browser: un attaccante in LAN può forzare la versione non cifrata (SSL stripping).",
+                    "Abilita l'header Strict-Transport-Security, se il dispositivo lo consente.", p)
+            }
+            if let methods = p.script("http-methods"), let risky = riskyMethods(methods) {
+                let writes = risky.filter { ["PUT", "DELETE", "MOVE", "COPY", "PROPPATCH", "MKCOL"].contains($0) }
+                add("http-risky-methods", writes.isEmpty ? .low : .medium,
+                    "Metodi HTTP rischiosi abilitati (\(risky.joined(separator: ", ")))",
+                    writes.isEmpty
+                        ? "TRACE può essere sfruttato per leggere cookie e header (cross-site tracing)."
+                        : "Il server accetta metodi che possono modificare o cancellare file.",
+                    "Disabilita i metodi non necessari nella configurazione del server web.", p)
+            }
+
+            // --- Chiavi SSH
+            if let keys = p.script("ssh-hostkey") {
+                let weak = weakHostKeys(keys)
+                if !weak.isEmpty {
+                    add("ssh-weak-hostkey", .low, "Chiavi host SSH deboli",
+                        "Il server usa chiavi obsolete: \(weak.joined(separator: ", ")).",
+                        "Rigenera le chiavi host (Ed25519 o RSA ≥ 3072 bit) e rimuovi DSA.", p)
+                }
+            }
+
             // --- UDP
             if svc == "snmp" || (p.proto == "udp" && p.number == 161) {
                 if let info = p.script("snmp-info"), !info.isEmpty {
@@ -224,6 +256,24 @@ public enum AuditEngine {
     static func firstLines(_ s: String, max: Int = 4) -> String {
         s.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }.prefix(max).joined(separator: " · ")
+    }
+
+    /// "Potentially risky methods: PUT DELETE TRACE" → ["PUT", "DELETE", "TRACE"]
+    static func riskyMethods(_ s: String) -> [String]? {
+        guard let r = s.range(of: "Potentially risky methods:") else { return nil }
+        let line = s[r.upperBound...].prefix { $0 != "\n" }
+        let methods = line.split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        return methods.isEmpty ? nil : methods
+    }
+
+    /// Righe "1024 aa:bb:… (DSA)" / "2048 SHA256:… (RSA)": DSA sempre, RSA sotto 2048 bit.
+    static func weakHostKeys(_ s: String) -> [String] {
+        s.split(separator: "\n").compactMap { raw in
+            let parts = raw.trimmingCharacters(in: .whitespaces).split(separator: " ")
+            guard parts.count >= 3, let bits = Int(parts[0]), let type = parts.last?.trimmingCharacters(in: CharacterSet(charactersIn: "()")) else { return nil }
+            if type == "DSA" || (type == "RSA" && bits < 2048) { return "\(type) \(bits) bit" }
+            return nil
+        }
     }
 
     static func leastStrength(_ s: String) -> String? {

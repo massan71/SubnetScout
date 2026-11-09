@@ -6,6 +6,8 @@ public struct NmapRun: Sendable {
     public var args: String?
     public var startedAt: Date?
     public var finishedAt: Date?
+    /// Script eseguiti prima/dopo la scansione degli host (es. broadcast-dhcp-discover).
+    public var runScripts: [ScriptOutput] = []
 }
 
 public enum NmapParseError: LocalizedError {
@@ -34,7 +36,8 @@ public enum NmapXMLParser {
             }
         }
         return NmapRun(hosts: delegate.hosts, version: delegate.version, args: delegate.args,
-                       startedAt: delegate.startedAt, finishedAt: delegate.finishedAt)
+                       startedAt: delegate.startedAt, finishedAt: delegate.finishedAt,
+                       runScripts: delegate.runScripts)
     }
 
     private final class Delegate: NSObject, XMLParserDelegate {
@@ -43,7 +46,9 @@ public enum NmapXMLParser {
         var args: String?
         var startedAt: Date?
         var finishedAt: Date?
+        var runScripts: [ScriptOutput] = []
 
+        private var inRunScript = false
         private var host: Host?
         private var hostUp = false
         private var port: PortInfo?
@@ -86,6 +91,8 @@ public enum NmapXMLParser {
                                             extraInfo: a["extrainfo"], tunnel: a["tunnel"])
             case "hostscript":
                 inHostScript = true
+            case "prescript", "postscript":
+                inRunScript = true
             case "script":
                 guard let id = a["id"] else { break }
                 let s = ScriptOutput(id: id, output: a["output"] ?? "")
@@ -93,6 +100,8 @@ public enum NmapXMLParser {
                     port?.scripts.append(s)
                 } else if inHostScript {
                     host?.hostScripts.append(s)
+                } else if inRunScript {
+                    runScripts.append(s)
                 }
             case "osmatch":
                 if let n = a["name"] {
@@ -112,6 +121,8 @@ public enum NmapXMLParser {
                 port = nil
             case "hostscript":
                 inHostScript = false
+            case "prescript", "postscript":
+                inRunScript = false
             case "host":
                 if let h = host, hostUp, !h.ip.isEmpty { hosts.append(h) }
                 host = nil

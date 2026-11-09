@@ -70,7 +70,8 @@ Con un certificato di sviluppo stabile (`SIGN_IDENTITY`) il problema sparisce.
 | **Discovery** | Rileva da solo interfaccia e subnet, ARP/ping sweep, MAC dalla tabella ARP anche senza root, produttore dal database OUI di nmap, riconosce i MAC randomizzati, il gateway e il tipo di dispositivo |
 | **Profili** | Discovery · Veloce (top 100) · Standard + audit (top 1000 + script) · Completo (65535 TCP + UDP principali) |
 | **Amministratore** | SYN scan, OS detection, UDP, MAC: password richiesta con la finestra standard di macOS |
-| **Audit** | ~30 regole: Telnet, FTP anonimo, SMBv1, firma SMB, TLS obsoleto o debole, certificati scaduti o self-signed, RDP senza NLA, VNC senza password, DB esposti, API Docker, SNMP `public`, UPnP, SSH debole… |
+| **Audit** | ~35 regole: Telnet, FTP anonimo, SMBv1, firma SMB, TLS obsoleto o debole, DH deboli, certificati scaduti o self-signed, HTTPS senza HSTS, metodi HTTP rischiosi, RDP senza NLA, VNC senza password, DB esposti, API Docker, SNMP `public`, chiavi SSH deboli… |
+| **Rete** | MAC del gateway cambiato o condiviso da un altro IP (ARP spoofing), server DHCP non autorizzati (`broadcast-dhcp-discover`, come amministratore), DNS anomali, router UPnP e **porte aperte verso Internet** (lettura della tabella IGD), gestione del router accessibile |
 | **Rischio** | Punteggio 0–100 per host e per rete, voto A–F |
 | **Storico** | Ogni scan viene salvato in `~/Library/Application Support/SubnetScout/Scans`. Il diff con lo scan precedente mostra nuovi dispositivi, porte aperte o chiuse e nuovi problemi |
 | **Dispositivi noti** | I dispositivi segnati come noti spariscono dal badge «NUOVO» |

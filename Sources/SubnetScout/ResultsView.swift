@@ -5,7 +5,7 @@ struct ResultsView: View {
     @Environment(AppModel.self) private var model
     let result: ScanResult
 
-    enum Mode: String, CaseIterable { case devices = "Dispositivi", findings = "Problemi" }
+    enum Mode: String, CaseIterable { case devices = "Dispositivi", findings = "Problemi", network = "Rete" }
     @State private var mode: Mode = .devices
     @State private var search = ""
     @State private var onlyIssues = false
@@ -21,6 +21,7 @@ struct ResultsView: View {
             switch mode {
             case .devices: hostTable
             case .findings: findingsList
+            case .network: NetworkPanel(result: result)
             }
         }
         .searchable(text: $search, placement: .toolbar, prompt: "Cerca IP, nome, produttore, servizio")
