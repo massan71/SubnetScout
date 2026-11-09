@@ -14,6 +14,9 @@
 # versione, helper), poi (dopo conferma) fa commit, tag, push e crea la
 # release su GitHub. Se un controllo fallisce non viene pubblicato nulla.
 #
+# Se massan71/homebrew-tap è clonato accanto a questo repository (o in
+# $HOMEBREW_TAP_DIR), aggiorna anche il cask subnetscout e lo pubblica.
+#
 # Facoltativo: RELEASE_COMMIT_TRAILER viene aggiunto al messaggio di commit.
 
 set -euo pipefail
@@ -48,6 +51,11 @@ git fetch -q origin
 [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]] || die "main non è allineato con origin/main"
 git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "il tag $TAG esiste già"
 git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1 && die "il tag $TAG esiste già su GitHub"
+TAP_DIR="${HOMEBREW_TAP_DIR:-$ROOT/../homebrew-tap}"
+CASK="$TAP_DIR/Casks/subnetscout.rb"
+if [[ -f "$CASK" && -n "$(git -C "$TAP_DIR" status --porcelain)" ]]; then
+  die "il tap Homebrew $TAP_DIR ha modifiche non committate"
+fi
 
 # --- Versione ----------------------------------------------------------------
 OLD_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")"
@@ -134,3 +142,20 @@ gh release create "$TAG" "$ZIP" --title "SubnetScout $VERSION" --notes-file "$FU
 REMOTE_SHA="$(gh release view "$TAG" --json assets --jq '.assets[0].digest' | sed 's/^sha256://')"
 [[ "$REMOTE_SHA" == "$SHA" ]] || die "il checksum del file caricato è diverso: $REMOTE_SHA"
 echo "Pubblicata $TAG: $(gh release view "$TAG" --json url --jq .url)"
+
+# --- Cask Homebrew -----------------------------------------------------------
+# Aggiorna massan71/homebrew-tap così `brew upgrade --cask subnetscout` trova la nuova versione.
+if [[ -f "$CASK" ]]; then
+  git -C "$TAP_DIR" pull -q --ff-only
+  sed -i '' -E "s/^  version \"[^\"]*\"/  version \"$VERSION\"/; s/^  sha256 \"[^\"]*\"/  sha256 \"$SHA\"/" "$CASK"
+  grep -q "version \"$VERSION\"" "$CASK" && grep -q "sha256 \"$SHA\"" "$CASK" \
+    || { echo "attenzione: impossibile aggiornare $CASK, aggiornalo a mano" >&2; git -C "$TAP_DIR" checkout -q -- Casks/subnetscout.rb; exit 0; }
+  ruby -c "$CASK" >/dev/null
+  CASK_MESSAGE="Update SubnetScout to $VERSION"
+  [[ -n "${RELEASE_COMMIT_TRAILER:-}" ]] && CASK_MESSAGE="$CASK_MESSAGE"$'\n\n'"$RELEASE_COMMIT_TRAILER"
+  git -C "$TAP_DIR" commit -q -m "$CASK_MESSAGE" -- Casks/subnetscout.rb
+  git -C "$TAP_DIR" push -q
+  echo "Cask Homebrew aggiornato: brew upgrade --cask subnetscout"
+else
+  echo "Tap Homebrew non trovato in $TAP_DIR: cask non aggiornato"
+fi

@@ -10,6 +10,15 @@ Scanner di rete nativo per macOS (SwiftUI) basato su **nmap**: discovery della s
 - nmap: `brew install nmap` (non è incluso nell'app per via della licenza NPSL)
 - Xcode (o Command Line Tools con Swift 6) per compilare
 
+## Installare
+
+```bash
+brew install --cask massan71/tap/subnetscout
+```
+
+Installa anche la formula `nmap`. In alternativa scarica lo zip dalle [release](https://github.com/massan71/SubnetScout/releases).
+La build è firmata ad-hoc e non notarizzata: il cask rimuove la quarantena, mentre con lo zip serve «Apri comunque» in Privacy e sicurezza.
+
 ## Compilare e avviare
 
 ```bash
