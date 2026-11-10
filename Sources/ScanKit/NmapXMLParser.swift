@@ -15,7 +15,7 @@ public enum NmapParseError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidXML(let msg): "Output XML di nmap non valido: \(msg)"
+        case .invalidXML(let msg): "Invalid nmap XML output: \(msg)"
         }
     }
 }

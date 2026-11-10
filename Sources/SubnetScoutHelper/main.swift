@@ -22,7 +22,7 @@ let log = Logger(subsystem: HelperConstants.helperIdentifier, category: "helper"
 func clientRequirement() -> String {
     let kind = CodeSigning.current()
     if kind == .adHoc {
-        log.warning("Helper con firma ad-hoc: il client viene verificato solo per identificatore")
+        log.warning("Ad-hoc signed helper: the client is verified by identifier only")
     }
     return CodeSigning.requirement(forPeer: HelperConstants.appIdentifier, signedLike: kind)
 }
@@ -54,7 +54,7 @@ final class IdleTracker: @unchecked Sendable {
         DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [self] in
             lock.lock(); let idle = active == 0 && gen == generation; lock.unlock()
             if idle {
-                log.info("Inattivo, uscita")
+                log.info("Idle, exiting")
                 exit(0)
             }
         }
@@ -86,23 +86,23 @@ final class HelperService: NSObject, ScanHelperProtocol, @unchecked Sendable {
 
     func adoptNmap(authorization: Data, reply: @escaping @Sendable (String?, String?) -> Void) {
         guard NmapAdopter.verifyAdmin(authorization) else {
-            log.error("adoptNmap rifiutato: autorizzazione non valida")
+            log.error("adoptNmap refused: invalid authorization")
             return reply(nil, NmapAdopter.AdoptError.unauthorized.localizedDescription)
         }
         do {
             let resolved = try NmapAdopter.adopt()
-            log.info("nmap adottato in \(resolved.binary, privacy: .public)")
+            log.info("nmap adopted at \(resolved.binary, privacy: .public)")
             reply(resolved.binary, nil)
         } catch {
-            log.error("adoptNmap fallito: \(error.localizedDescription, privacy: .public)")
+            log.error("adoptNmap failed: \(error.localizedDescription, privacy: .public)")
             reply(nil, error.localizedDescription)
         }
     }
 
     func runScan(id: String, profile: String, targets: [String], fullPrivileges: Bool,
                  reply: @escaping @Sendable (Data?, String?) -> Void) {
-        guard UUID(uuidString: id) != nil else { return reply(nil, "ID di scansione non valido.") }
-        guard let profile = ScanProfile(rawValue: profile) else { return reply(nil, "Profilo non valido.") }
+        guard UUID(uuidString: id) != nil else { return reply(nil, "Invalid scan ID.") }
+        guard let profile = ScanProfile(rawValue: profile) else { return reply(nil, "Invalid profile.") }
         let validated: [String]
         do {
             // Sintassi + solo reti private (gli hostname diventano IP già verificati).
@@ -115,11 +115,11 @@ final class HelperService: NSObject, ScanHelperProtocol, @unchecked Sendable {
         case .success(let n): nmap = n
         case .failure(let p): return reply(nil, p.localizedDescription)
         }
-        guard Self.acquireSlot() else { return reply(nil, "Troppe scansioni in corso.") }
+        guard Self.acquireSlot() else { return reply(nil, "Too many scans in progress.") }
 
         let client = ClientProxy(connection?.remoteObjectProxy as? ScanHelperClientProtocol)
         let args = profile.arguments(privileged: fullPrivileges) + ["--datadir", nmap.dataDir]
-        log.info("Scansione \(id, privacy: .public): profilo \(profile.rawValue, privacy: .public), \(validated.count) target")
+        log.info("Scan \(id, privacy: .public): profile \(profile.rawValue, privacy: .public), \(validated.count) target")
 
         let task = Task { [weak self] in
             defer {
@@ -135,7 +135,7 @@ final class HelperService: NSObject, ScanHelperProtocol, @unchecked Sendable {
                     onProgress: { client.proxy?.scanProgress(id: id, value: $0) })
                 reply(data, nil)
             } catch is CancellationError {
-                reply(nil, "Scansione annullata.")
+                reply(nil, "Scan cancelled.")
             } catch {
                 reply(nil, error.localizedDescription)
             }
@@ -144,11 +144,11 @@ final class HelperService: NSObject, ScanHelperProtocol, @unchecked Sendable {
     }
 
     func networkProbe(reply: @escaping @Sendable (Data?, String?) -> Void) {
-        guard Self.acquireSlot() else { return reply(nil, "Troppe operazioni in corso.") }
+        guard Self.acquireSlot() else { return reply(nil, "Too many operations in progress.") }
         Task {
             defer { Self.releaseSlot() }
             let probe = await NetworkProbe.run(source: "helper")
-            log.info("Sonda di rete: \(probe.arp.count) voci ARP, \(probe.upnpGateways.count) router UPnP")
+            log.info("Network probe: \(probe.arp.count) ARP entries, \(probe.upnpGateways.count) UPnP routers")
             do {
                 reply(try JSONEncoder().encode(probe), nil)
             } catch {
@@ -218,5 +218,5 @@ let delegate = ListenerDelegate()
 let listener = NSXPCListener(machServiceName: HelperConstants.machServiceName)
 listener.delegate = delegate
 listener.resume()
-log.info("SubnetScoutHelper avviato (pid \(getpid()), requisito client: \(delegate.requirement, privacy: .public))")
+log.info("SubnetScoutHelper started (pid \(getpid()), client requirement: \(delegate.requirement, privacy: .public))")
 dispatchMain()

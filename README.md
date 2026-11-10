@@ -1,131 +1,134 @@
 # SubnetScout
 
-Scanner di rete nativo per macOS (SwiftUI) basato su **nmap**: discovery della subnet, audit di sicurezza e report.
+Native macOS network scanner (SwiftUI) built on **nmap**: subnet discovery, security audit and reports.
 
-> ⚠️ Usalo solo su reti tue o per cui hai un'autorizzazione esplicita.
+> ⚠️ Only use it on networks you own or are explicitly authorized to test.
 
-## Requisiti
+## Requirements
 
 - macOS 14+
-- nmap: `brew install nmap` (non è incluso nell'app per via della licenza NPSL)
-- Xcode (o Command Line Tools con Swift 6) per compilare
+- nmap: `brew install nmap` (not bundled with the app because of its NPSL license)
+- Xcode (or the Command Line Tools with Swift 6) to build
 
-## Installare
+## Install
 
 ```bash
 brew install --cask massan71/tap/subnetscout
 ```
 
-Installa anche la formula `nmap`. In alternativa scarica lo zip dalle [release](https://github.com/massan71/SubnetScout/releases).
-La build è firmata ad-hoc e non notarizzata: il cask rimuove la quarantena, mentre con lo zip serve «Apri comunque» in Privacy e sicurezza.
+This also installs the `nmap` formula. Alternatively, download the zip from the [releases](https://github.com/massan71/SubnetScout/releases).
+The app is not notarized by Apple: the cask removes the quarantine flag, while with the zip you need **Open Anyway** in System Settings › Privacy & Security.
 
-## Compilare e avviare
+## Build and run
 
 ```bash
-swift run SubnetScout          # sviluppo
-scripts/bundle.sh --open       # crea build/SubnetScout.app (universale) e la avvia
-swift test                     # test (incluso uno scan reale di 127.0.0.1)
+swift run SubnetScout          # development
+scripts/bundle.sh --open       # builds build/SubnetScout.app (universal) and opens it
+swift test                     # tests (including a real scan of 127.0.0.1)
 ```
 
-Per lavorare in Xcode: `open Package.swift`.
+To work in Xcode: `open Package.swift`.
 
-Icona: `swift scripts/make-icon.swift` rigenera `Resources/AppIcon.icns` (disegnata in CoreGraphics).
+Icon: `swift scripts/make-icon.swift` regenerates `Resources/AppIcon.icns` (drawn with CoreGraphics).
 
-Release: `scripts/release.sh 0.1.0 release-notes/0.1.0.md` (test, build universale, zip verificato, tag e release su GitHub).
+Release: `scripts/release.sh 0.6.0 release-notes/0.6.0.md` (tests, universal build, verified zip, tag, GitHub release and Homebrew cask update).
 
-Se `xcode-select` punta ai Command Line Tools, anteponi
+If `xcode-select` points to the Command Line Tools, prefix commands with
 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
 
 ## Privileged helper
 
-Con «Come amministratore» l'app usa un daemon root (`SubnetScoutHelper`, registrato
-con `SMAppService`) invece di chiedere la password a ogni scansione.
+When installed, every scan runs through a root daemon (`SubnetScoutHelper`, registered with
+`SMAppService`): no password prompts, and no macOS local network limits. **As administrator**
+only adds OS detection, UDP and the DHCP probe.
 
-1. Attiva «Come amministratore» e premi **Installa helper…**
-2. Approva SubnetScout in *Impostazioni di Sistema › Generali › Elementi login ed estensioni*
+1. Click **Install Helper…** in the sidebar (or in the setup assistant)
+2. Approve SubnetScout in *System Settings › General › Login Items & Extensions*
 
-Il helper espone via XPC solo «esegui il profilo X sui target Y». Le misure di sicurezza:
-- **Argomenti decisi dal helper**: costruisce lui gli argomenti di nmap e rivalida profilo e target, quindi un client non può fargli eseguire comandi arbitrari come root.
-- **Client verificato**: accetta solo connessioni firmate `net.sangalli.SubnetScout`. Con firma Developer ID richiede anche lo stesso Team ID (`SIGN_IDENTITY=… scripts/bundle.sh`).
-- **Solo nmap di root**: esegue nmap solo se binario, librerie, script NSE e cartelle sono di root e non scrivibili da altri (`TrustedNmap`).
-  - **nmap di Homebrew non passa**, perché appartiene al tuo utente: eseguirlo come root senza password darebbe root a qualsiasi programma. In quel caso l'app ricade sulla richiesta della password.
-  - Per usare il helper installa anche il **pacchetto ufficiale di nmap.org**. Dalla 7.99 l'installer lo mette in `/Applications/nmap.app`, che il gruppo admin può modificare, quindi non è affidabile così com'è.
-  - Premi **Copia nmap in posizione protetta…**: dopo la password amministratore il helper lo copia in `/Library/Application Support/SubnetScout/nmap` (root:wheel). Rifallo quando aggiorni nmap.
-  - Va bene anche MacPorts, e i vecchi installer che usavano `/usr/local/bin/nmap`.
-  - Le librerie `@rpath`/`@executable_path` vengono risolte e verificate una per una.
-- **Ambiente isolato**: ambiente azzerato, cwd `/`, al massimo 2 scansioni insieme. Si chiude da solo dopo 30 s di inattività e launchd lo riavvia su richiesta.
+Over XPC the helper only exposes “run profile X on targets Y”. Security measures:
+- **The helper builds the nmap arguments** and re-validates profile and targets, so a client cannot make it run arbitrary commands as root.
+- **Private networks only**: targets must be private, link-local, CGNAT or loopback addresses. Hostnames are resolved and replaced by the verified IPs.
+- **Verified client**: it only accepts connections from the app signed with the same certificate (or, with a Developer ID, the same Team ID).
+- **Root-owned nmap only**: it runs nmap only if the binary, libraries, NSE scripts and folders are owned by root and not writable by others (`TrustedNmap`).
+  - **Homebrew's nmap does not qualify**, because it belongs to your user: running it as root without a password would give root to any program. In that case the app falls back to asking for your password.
+  - To use the helper, also install the **official package from nmap.org**. Since 7.99 its installer puts nmap in `/Applications/nmap.app`, which the admin group can modify, so it is not trusted as is.
+  - Click **Copy nmap to Protected Location…**: after your administrator password, the helper copies it to `/Library/Application Support/SubnetScout/nmap` (root:wheel) and checks every file against the installer receipt. Repeat this after updating nmap.
+  - MacPorts and older installers that used `/usr/local/bin/nmap` also work.
+  - `@rpath`/`@executable_path` libraries are resolved and checked one by one.
+- **Isolated environment**: empty environment, cwd `/`, at most 2 concurrent scans. It exits after 30 s of inactivity and launchd restarts it on demand.
 
-Disinstallazione: dal pulsante nell'app, oppure eliminando l'app. La copia protetta di nmap
-resta: per rimuoverla `sudo rm -rf "/Library/Application Support/SubnetScout"`.
+Uninstall: use the button in the app, or delete the app. The protected copy of nmap stays:
+remove it with `sudo rm -rf "/Library/Application Support/SubnetScout"`.
 
-### Firma, permessi di macOS e helper
+### Signing, macOS permissions and the helper
 
-- `bundle.sh` firma con il certificato **«SubnetScout Code Signing»** se è nel portachiavi, altrimenti ad-hoc.
-  Con il certificato app e helper si verificano a vicenda (`certificate root = H"…"`).
-- **Rete locale**: macOS può negare il permesso all'app anche se l'interruttore in Impostazioni è attivo, ad esempio
-  dopo aver cambiato firma o con più copie dell'app con lo stesso bundle ID. Per questo, quando l'helper è attivo,
-  è lui a leggere la tabella ARP e cercare i router UPnP: come daemon di sistema non è soggetto al permesso.
-  Senza helper la vista Rete avvisa se la rete locale è bloccata.
-- **Approvazione dell'helper**: senza un Developer ID, macOS lega l'approvazione all'hash del binario dell'helper.
-  Quando l'helper cambia, premi **Reinstalla** e riapprova. Solo una firma Developer ID evita di farlo.
-- **Una sola copia installata**: tieni l'app solo in `/Applications`. Due copie con lo stesso bundle ID confondono
-  i permessi di macOS.
-- Diagnostica: `/Applications/SubnetScout.app/Contents/MacOS/SubnetScout --diagnose-network`.
-- Verifica visiva: `… --qa-snapshots <cartella>` salva uno screenshot delle viste principali (con i dati reali dello storico).
-- **Portachiavi**: lo storico è cifrato con una chiave nel Portachiavi. Senza Developer ID, macOS lega l'accesso
-  all'hash del binario: dopo ogni aggiornamento chiede di nuovo il permesso («Consenti sempre»). L'app nel frattempo
-  resta utilizzabile.
+- `bundle.sh` signs with the **“SubnetScout Code Signing”** certificate if it is in the keychain, otherwise ad hoc.
+  With the certificate, the app and the helper verify each other (`certificate root = H"…"`).
+- **Local Network**: macOS can deny the permission to the app even when the switch in Settings is on, for example
+  after a signature change or with several copies of the app sharing the same bundle ID. That is why, when the helper
+  is active, it reads the ARP table and looks for Bonjour devices and UPnP routers: as a system daemon it is not subject
+  to that permission. Without the helper, the Network view warns you if the local network is blocked.
+- **Helper approval**: without a Developer ID, macOS ties the approval to the hash of the helper binary.
+  When the helper changes, click **Reinstall** and approve it again.
+- **Keychain**: the scan history is encrypted with a key stored in the Keychain. Without a Developer ID, macOS ties
+  access to the binary hash, so after every update it asks again (“Always Allow”). The app stays usable meanwhile.
+- **Install only one copy**: keep the app only in `/Applications`. Two copies with the same bundle ID confuse
+  macOS permissions.
+- Diagnostics: `/Applications/SubnetScout.app/Contents/MacOS/SubnetScout --diagnose-network`.
+- Visual check: `… --qa-snapshots <folder>` saves a screenshot of the main views (using the real history).
 
-## Funzioni
+## Features
 
-| Area | Cosa fa |
+| Area | What it does |
 |---|---|
-| **Discovery** | Nomi e modelli da Bonjour/mDNS (stampanti, speaker, TV, dispositivi smart). Rileva da solo interfaccia e subnet, ARP/ping sweep, MAC dalla tabella ARP anche senza root, produttore dal database OUI di nmap, riconosce i MAC randomizzati, il gateway e il tipo di dispositivo |
-| **Profili** | Discovery · Veloce (top 100) · Standard + audit (top 1000 + script) · Completo (65535 TCP + UDP principali) |
-| **Amministratore** | SYN scan, OS detection, UDP, MAC: password richiesta con la finestra standard di macOS |
-| **Audit** | ~35 regole: Telnet, FTP anonimo, SMBv1, firma SMB, TLS obsoleto o debole, DH deboli, certificati scaduti o self-signed, HTTPS senza HSTS, metodi HTTP rischiosi, RDP senza NLA, VNC senza password, DB esposti, API Docker, SNMP `public`, chiavi SSH deboli… |
-| **Rete** | MAC del gateway cambiato o condiviso da un altro IP (ARP spoofing), server DHCP non autorizzati (`broadcast-dhcp-discover`, come amministratore), DNS anomali, router UPnP e **porte aperte verso Internet** (lettura della tabella IGD), gestione del router accessibile |
-| **CVE** | Facoltativo e disattivato di default: i CPE rilevati da nmap (`-sV`) vengono cercati nel database NVD del NIST. Viene inviato solo prodotto e versione, mai dati dei dispositivi. Le risposte restano in cache 7 giorni, con badge per le CVE sfruttate attivamente (CISA KEV) e chiave API NVD facoltativa nel Portachiavi |
-| **Pianificazione** | Scansioni automatiche (ogni ora, ogni 6 ore, ogni giorno, ogni settimana) tramite l'helper, senza password. Notifiche solo quando cambia qualcosa (nuovi dispositivi, porte, problemi, CVE) e solo con conteggi. Icona nella barra dei menu e apertura all'accesso |
-| **Rischio** | Punteggio 0–100 per host e per rete, voto A–F |
-| **Storico** | Ogni scan viene salvato in `~/Library/Application Support/SubnetScout/Scans`. Il diff con lo scan precedente mostra nuovi dispositivi, porte aperte o chiuse e nuovi problemi |
-| **Dispositivi noti** | I dispositivi segnati come noti spariscono dal badge «NUOVO» |
-| **Report** | HTML autonomo (chiaro e scuro, stampabile in PDF dal browser), CSV per porta, JSON completo |
+| **Discovery** | Names and models from Bonjour/mDNS (printers, speakers, TVs, smart devices). Detects interface and subnet automatically, ARP/ping sweep, MAC addresses from the ARP table even without root, vendor from nmap's OUI database, randomized MACs, the gateway and the device type |
+| **Profiles** | Discovery · Quick (top 100) · Standard + audit (top 1000 + scripts) · Full (65535 TCP + main UDP ports) |
+| **Administrator** | OS detection, UDP and DHCP probe; without the helper, the password is requested with the standard macOS dialog |
+| **Audit** | ~35 rules: Telnet, anonymous FTP, SMBv1, SMB signing, obsolete or weak TLS, weak DH, expired or self-signed certificates, HTTPS without HSTS, risky HTTP methods, RDP without NLA, VNC without a password, exposed databases, Docker API, SNMP `public`, weak SSH keys… |
+| **Network** | Gateway MAC changed or shared by another IP (ARP spoofing), rogue DHCP servers (`broadcast-dhcp-discover`, as administrator), unusual DNS, UPnP routers and **ports open to the Internet** (IGD mapping table), reachable router management |
+| **CVE** | Optional and off by default: the CPEs detected by nmap (`-sV`) are looked up in NIST's NVD database. Only product and version are sent, never device data. Responses are cached for 7 days, actively exploited CVEs (CISA KEV) are flagged, optional NVD API key stored in the Keychain |
+| **Schedule** | Automatic scans (hourly, every 6 hours, daily, weekly) through the helper, without a password. Notifications only when something changes (new devices, ports, issues, CVEs) and only with counts. Menu bar icon and open at login |
+| **Risk** | Score 0–100 per host and per network, grade A–F |
+| **History** | Every scan is stored encrypted (AES-256-GCM, key in the Keychain) in `~/Library/Application Support/SubnetScout/Scans`. The diff with the previous scan shows new devices, opened or closed ports and new issues |
+| **Known devices** | Devices marked as known no longer show the “NEW” badge |
+| **Report** | Self-contained HTML (light and dark, printable to PDF from the browser, strict CSP), CSV per port, full JSON |
 
-## Struttura
+## Layout
 
 ```
-Sources/ScanKit/          motore, senza UI (testabile, riusabile da una CLI)
-  ScanProfile.swift       profili → argomenti nmap, validazione dei target
-  NmapRunner.swift        Process + XML su stdout, progresso, cancellazione, modalità admin
-  NmapXMLParser.swift     parser SAX dell'output -oX
-  NetworkInfo.swift       interfacce (getifaddrs), gateway, tabella ARP
-  MACVendorDB.swift       lookup OUI (nmap-mac-prefixes)
-  AuditEngine.swift       regole di audit → Finding
-  DeviceKind.swift        classificazione euristica dei dispositivi
-  ScanEngine.swift        orchestrazione: scan → parse → enrich → audit
-  ScanDiff.swift          confronto tra scansioni
-  ScanHistoryStore.swift  persistenza JSON
-  ReportGenerator.swift   HTML e CSV
-Sources/SubnetScout/      app SwiftUI
-Tests/ScanKitTests/       Swift Testing con fixture XML + scan reale di localhost
+Sources/ScanKit/          engine, no UI (testable, reusable from a CLI)
+  ScanProfile.swift       profiles → nmap arguments, target validation
+  NmapRunner.swift        Process + XML on stdout, progress, cancellation, password mode
+  NmapXMLParser.swift     SAX parser for -oX output
+  NetworkInfo.swift       interfaces (getifaddrs), gateway, ARP table, DHCP lease
+  AuditEngine.swift       service audit rules → Finding
+  NetworkAudit.swift      network rules (ARP spoofing, DHCP, DNS, UPnP)
+  CVE.swift               NVD client, cache, CVE findings
+  Bonjour.swift           DNS-SD discovery through mDNSResponder
+  UPnPInspector.swift     SSDP + read-only IGD port mappings
+  TrustedNmap.swift       root-ownership and library checks for nmap
+  ScanEngine.swift        orchestration: scan → parse → enrich → audit
+  ScanHistoryStore.swift  encrypted history
+  ReportGenerator.swift   HTML and CSV
+Sources/SubnetScout/      SwiftUI app
+Sources/SubnetScoutHelper/  privileged helper (XPC)
+Tests/ScanKitTests/       Swift Testing with XML fixtures, fake NVD, real localhost scan
 ```
 
 ## Roadmap
 
-- [x] Privileged helper (`SMAppService` + XPC) con avanzamento e annullamento
-- [x] Nomi e modelli da Bonjour/mDNS
-- [x] Correlazione delle CVE dalle versioni dei servizi (API NVD, facoltativa)
-- [ ] Export PDF nativo (WKWebView + NSPrintOperation)
-- [x] Scansioni programmate e notifiche sui cambiamenti
-- [x] App nella barra dei menu
-- [ ] Mappa visuale della rete
-- [ ] Discovery IPv6
-- [ ] Controllo delle credenziali predefinite (separato, da attivare esplicitamente)
-- [ ] Interfaccia in inglese
-- [x] Icona dell'app
-- [ ] Firma Developer ID e notarizzazione
+- [x] Privileged helper (`SMAppService` + XPC) with progress and cancellation
+- [x] Names and models from Bonjour/mDNS
+- [x] CVE correlation from service versions (NVD API, optional)
+- [x] Scheduled scans and change notifications
+- [x] Menu bar app
+- [x] English interface
+- [x] App icon
+- [ ] Native PDF export (WKWebView + NSPrintOperation)
+- [ ] Visual network map
+- [ ] IPv6 discovery
+- [ ] Default credential check (separate, explicitly enabled)
 
-## Licenza
+## License
 
-MIT, vedi [LICENSE](LICENSE). nmap è distribuito separatamente con la propria licenza (NPSL).
+MIT, see [LICENSE](LICENSE). nmap is distributed separately under its own license (NPSL).

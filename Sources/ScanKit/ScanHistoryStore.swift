@@ -20,7 +20,7 @@ public struct ScanHistoryStore: Sendable {
 
         public var errorDescription: String? {
             switch self {
-            case .unreadable(let name): "Impossibile decifrare la scansione \(name) (chiave del Portachiavi mancante o diversa)."
+            case .unreadable(let name): "Cannot decrypt scan \(name) (Keychain key missing or different)."
             }
         }
     }
@@ -139,7 +139,7 @@ public enum HistoryKey {
         case keychain(OSStatus)
         public var errorDescription: String? {
             switch self {
-            case .keychain(let s): "Portachiavi non accessibile (\(s))."
+            case .keychain(let s): "Keychain not accessible (\(s))."
             }
         }
     }
@@ -171,7 +171,7 @@ public enum HistoryKey {
         let key = SymmetricKey(size: .bits256)
         let add: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                   kSecAttrService as String: service,
-                                  kSecAttrLabel as String: "SubnetScout – chiave dello storico",
+                                  kSecAttrLabel as String: "SubnetScout – history key",
                                   kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
                                   kSecValueData as String: key.withUnsafeBytes { Data($0) }]
         let addStatus = SecItemAdd(add as CFDictionary, nil)

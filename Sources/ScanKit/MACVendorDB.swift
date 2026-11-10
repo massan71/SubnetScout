@@ -30,7 +30,7 @@ public final class MACVendorDB: Sendable {
 
     public var isEmpty: Bool { prefixes.isEmpty }
 
-    /// Restituisce il produttore, o "MAC privato (randomizzato)" per gli indirizzi
+    /// Restituisce il produttore, o "Private MAC (randomized)" per gli indirizzi
     /// amministrati localmente tipici di iPhone/Android con "indirizzo privato Wi-Fi".
     public func vendor(for mac: String) -> String? {
         let hex = mac.replacingOccurrences(of: ":", with: "").uppercased()
@@ -39,7 +39,7 @@ public final class MACVendorDB: Sendable {
         for len in [9, 7, 6] {
             if let v = prefixes[String(hex.prefix(len))] { return v }
         }
-        if isLocallyAdministered(mac) { return "MAC privato (randomizzato)" }
+        if isLocallyAdministered(mac) { return "Private MAC (randomized)" }
         return nil
     }
 

@@ -23,7 +23,7 @@ public enum UPnPInspector {
         public var errorDescription: String? {
             switch self {
             case .sendFailed(let reason):
-                "Ricerca UPnP non riuscita (\(reason)). Controlla che SubnetScout abbia il permesso in Impostazioni di Sistema › Privacy e sicurezza › Rete locale."
+                "UPnP discovery failed (\(reason)). Check that SubnetScout is allowed in System Settings › Privacy & Security › Local Network."
             }
         }
     }
@@ -85,7 +85,7 @@ public enum UPnPInspector {
             let text = String(decoding: buffer[0..<n], as: UTF8.self)
             if let location = header("location", in: text), found[ip] == nil { found[ip] = location }
         }
-        upnpLog.info("SSDP: \(sent, privacy: .public) invii, errore \(sendError ?? "-", privacy: .public), risposte \(found.keys.sorted().joined(separator: ","), privacy: .public)")
+        upnpLog.info("SSDP: \(sent, privacy: .public) sends, error \(sendError ?? "-", privacy: .public), responses \(found.keys.sorted().joined(separator: ","), privacy: .public)")
         return (found, sent == 0 ? sendError : nil)
     }
 
@@ -94,7 +94,7 @@ public enum UPnPInspector {
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
         addr.sin_port = in_port_t(1900).bigEndian
-        guard inet_pton(AF_INET, ip, &addr.sin_addr) == 1 else { return "indirizzo non valido" }
+        guard inet_pton(AF_INET, ip, &addr.sin_addr) == 1 else { return "invalid address" }
         let bytes = Array(message.utf8)
         let n = withUnsafePointer(to: &addr) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {

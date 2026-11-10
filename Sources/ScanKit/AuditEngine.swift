@@ -31,78 +31,78 @@ public enum AuditEngine {
 
             // --- Protocolli in chiaro / obsoleti
             if svc == "telnet" || (tcp && p.number == 23) {
-                add("telnet", .high, "Telnet attivo",
-                    "Telnet trasmette credenziali e sessione in chiaro.",
-                    "Disabilita Telnet e usa SSH.", p)
+                add("telnet", .high, "Telnet enabled",
+                    "Telnet sends credentials and the whole session in cleartext.",
+                    "Disable Telnet and use SSH.", p)
             }
             if tcp, ["login", "shell", "exec"].contains(svc) || [512, 513, 514].contains(p.number) {
-                add("r-services", .high, "Servizi r* (rsh/rlogin/rexec) attivi",
-                    "Servizi legacy senza cifratura e con autenticazione debole.",
-                    "Disattiva rsh/rlogin/rexec.", p)
+                add("r-services", .high, "r* services (rsh/rlogin/rexec) enabled",
+                    "Legacy services without encryption and with weak authentication.",
+                    "Disable rsh/rlogin/rexec.", p)
             }
             if svc == "ftp" || (tcp && p.number == 21 && !(p.service?.isTLS ?? false)) {
                 if let anon = p.script("ftp-anon"), anon.contains("Anonymous FTP login allowed") {
-                    add("ftp-anon", .high, "FTP con accesso anonimo",
-                        "Chiunque sulla rete può collegarsi al server FTP senza password.",
-                        "Disabilita il login anonimo o il servizio FTP.", p, evidence: firstLines(anon))
+                    add("ftp-anon", .high, "FTP with anonymous access",
+                        "Anyone on the network can log in to the FTP server without a password.",
+                        "Disable anonymous login or the FTP service.", p, evidence: firstLines(anon))
                 } else {
-                    add("ftp", .medium, "FTP non cifrato",
-                        "FTP invia nome utente e password in chiaro.",
-                        "Usa SFTP o FTPS, oppure disattiva il servizio.", p)
+                    add("ftp", .medium, "Unencrypted FTP",
+                        "FTP sends username and password in cleartext.",
+                        "Use SFTP or FTPS, or disable the service.", p)
                 }
             }
             if ["pop3", "imap"].contains(svc), !(p.service?.isTLS ?? false) {
-                add("mail-cleartext", .low, "Posta senza TLS (\(svc.uppercased()))",
-                    "Il servizio di posta accetta connessioni non cifrate.",
-                    "Abilita solo POP3S/IMAPS o STARTTLS obbligatorio.", p)
+                add("mail-cleartext", .low, "Mail without TLS (\(svc.uppercased()))",
+                    "The mail service accepts unencrypted connections.",
+                    "Allow only POP3S/IMAPS or require STARTTLS.", p)
             }
             if svc == "mqtt" || (tcp && p.number == 1883) {
-                add("mqtt", .medium, "Broker MQTT non cifrato",
-                    "Tipico dei dispositivi IoT/domotica: messaggi e credenziali viaggiano in chiaro.",
-                    "Usa MQTT su TLS (8883) e richiedi autenticazione.", p)
+                add("mqtt", .medium, "Unencrypted MQTT broker",
+                    "Common on IoT/smart home devices: messages and credentials travel in cleartext.",
+                    "Use MQTT over TLS (8883) and require authentication.", p)
             }
             if svc == "tftp" || (p.proto == "udp" && p.number == 69) {
-                add("tftp", .medium, "TFTP attivo",
-                    "TFTP non ha autenticazione: chiunque può leggere (o scrivere) file.",
-                    "Disattiva TFTP se non serve per provisioning.", p)
+                add("tftp", .medium, "TFTP enabled",
+                    "TFTP has no authentication: anyone can read (or write) files.",
+                    "Disable TFTP unless it is needed for provisioning.", p)
             }
 
             // --- Accesso remoto
             if svc == "ms-wbt-server" || (tcp && p.number == 3389) {
                 let rdp = p.script("rdp-enum-encryption")
                 if let rdp, !rdp.contains("CredSSP (NLA): SUCCESS") {
-                    add("rdp-no-nla", .high, "RDP senza Network Level Authentication",
-                        "Senza NLA il server espone la schermata di login prima dell'autenticazione.",
-                        "Abilita NLA e limita RDP a VPN o host fidati.", p, evidence: firstLines(rdp))
+                    add("rdp-no-nla", .high, "RDP without Network Level Authentication",
+                        "Without NLA the server exposes the login screen before authentication.",
+                        "Enable NLA and restrict RDP to a VPN or trusted hosts.", p, evidence: firstLines(rdp))
                 } else {
-                    add("rdp", .medium, "Desktop remoto (RDP) esposto",
-                        "RDP è un bersaglio frequente di brute force ed exploit.",
-                        "Limita l'accesso tramite firewall/VPN e usa password robuste.", p)
+                    add("rdp", .medium, "Remote Desktop (RDP) exposed",
+                        "RDP is a frequent target of brute-force attacks and exploits.",
+                        "Restrict access with a firewall/VPN and use strong passwords.", p)
                 }
             }
             if svc.hasPrefix("vnc") || (tcp && (5900...5903).contains(p.number)) {
                 if let vnc = p.script("vnc-info"), vnc.contains("None (1)") {
-                    add("vnc-noauth", .critical, "VNC senza autenticazione",
-                        "Il server VNC permette il controllo dello schermo senza password.",
-                        "Imposta una password robusta o disattiva la condivisione schermo.", p, evidence: firstLines(vnc))
+                    add("vnc-noauth", .critical, "VNC without authentication",
+                        "The VNC server allows screen control without a password.",
+                        "Set a strong password or turn off screen sharing.", p, evidence: firstLines(vnc))
                 } else {
-                    add("vnc", .medium, "Condivisione schermo (VNC) esposta",
-                        "VNC usa spesso password deboli e cifratura limitata.",
-                        "Limita l'accesso a utenti/host specifici o usa una VPN.", p)
+                    add("vnc", .medium, "Screen sharing (VNC) exposed",
+                        "VNC often uses weak passwords and limited encryption.",
+                        "Restrict access to specific users/hosts or use a VPN.", p)
                 }
             }
             if let v1 = p.script("sshv1"), v1.contains("SSHv1") {
-                add("sshv1", .high, "SSH protocollo 1 supportato",
-                    "SSHv1 ha vulnerabilità crittografiche note.",
-                    "Configura il server per accettare solo SSHv2.", p)
+                add("sshv1", .high, "SSH protocol 1 supported",
+                    "SSHv1 has known cryptographic weaknesses.",
+                    "Configure the server to accept SSHv2 only.", p)
             }
             if let algos = p.script("ssh2-enum-algos") {
                 let weak = ["diffie-hellman-group1-sha1", "arcfour", "-cbc", "hmac-md5", "ssh-dss"]
                     .filter { algos.contains($0) }
                 if !weak.isEmpty {
-                    add("ssh-weak-algos", .low, "SSH accetta algoritmi deboli",
-                        "Algoritmi obsoleti abilitati: \(weak.joined(separator: ", ")).",
-                        "Rimuovi cifrari CBC, arcfour, hmac-md5 e DH group1 dalla configurazione SSH.", p)
+                    add("ssh-weak-algos", .low, "SSH accepts weak algorithms",
+                        "Obsolete algorithms enabled: \(weak.joined(separator: ", ")).",
+                        "Remove CBC ciphers, arcfour, hmac-md5 and DH group1 from the SSH configuration.", p)
                 }
             }
 
@@ -114,139 +114,139 @@ public enum AuditEngine {
             let dbNames = ["mysql", "postgresql", "ms-sql-s", "oracle-tns", "mongodb", "mongod", "redis",
                            "memcache", "couchdb"]
             if tcp, let db = databases[p.number] ?? (dbNames.contains(svc) ? svc : nil) {
-                add("db-exposed", .high, "Database raggiungibile in rete (\(db))",
-                    "Il database accetta connessioni da altri dispositivi della rete.",
-                    "Fai ascoltare il servizio solo su localhost o limita gli IP con il firewall.", p)
+                add("db-exposed", .high, "Database reachable on the network (\(db))",
+                    "The database accepts connections from other devices on the network.",
+                    "Make the service listen on localhost only, or restrict IPs with the firewall.", p)
             }
             if tcp, p.number == 2375 || svc == "docker" {
-                add("docker-api", .critical, "API Docker esposta senza TLS",
-                    "Chi raggiunge la porta 2375 può avviare container come root sull'host.",
-                    "Disabilita l'API TCP o proteggila con TLS (2376) e mutual auth.", p)
+                add("docker-api", .critical, "Docker API exposed without TLS",
+                    "Anyone who reaches port 2375 can start containers as root on the host.",
+                    "Disable the TCP API or protect it with TLS (2376) and mutual auth.", p)
             }
 
             // --- Condivisioni Windows / NetBIOS
             if tcp, p.number == 139 || svc == "netbios-ssn" {
-                add("netbios", .low, "NetBIOS attivo",
-                    "NetBIOS espone nome macchina e informazioni di rete; protocollo legacy.",
-                    "Disabilita NetBIOS over TCP/IP se non necessario.", p)
+                add("netbios", .low, "NetBIOS enabled",
+                    "NetBIOS exposes the machine name and network information; it is a legacy protocol.",
+                    "Disable NetBIOS over TCP/IP if it is not needed.", p)
             }
 
             // --- Web senza HTTPS
             if tcp, svc == "http" || svc == "http-proxy" || svc == "http-alt", !(p.service?.isTLS ?? false) {
                 let title = p.script("http-title").map { " (\(firstLines($0, max: 1)))" } ?? ""
-                add("http-cleartext", .low, "Interfaccia web senza HTTPS\(title)",
-                    "Se la pagina prevede un login, le credenziali viaggiano in chiaro.",
-                    "Abilita HTTPS sul dispositivo o usa solo la versione cifrata.", p)
+                add("http-cleartext", .low, "Web interface without HTTPS\(title)",
+                    "If the page has a login, credentials travel in cleartext.",
+                    "Enable HTTPS on the device or use only the encrypted version.", p)
             }
 
             // --- TLS
             if let ciphers = p.script("ssl-enum-ciphers") {
                 let old = ["SSLv3", "TLSv1.0", "TLSv1.1"].filter { ciphers.contains("\($0):") }
                 if !old.isEmpty {
-                    add("tls-old", .medium, "Protocolli TLS obsoleti",
-                        "Il servizio accetta \(old.joined(separator: ", ")).",
-                        "Abilita solo TLS 1.2 e 1.3.", p)
+                    add("tls-old", .medium, "Obsolete TLS protocols",
+                        "The service accepts \(old.joined(separator: ", ")).",
+                        "Allow only TLS 1.2 and 1.3.", p)
                 }
                 if let grade = leastStrength(ciphers), ["C", "D", "E", "F"].contains(grade) {
-                    add("tls-weak-ciphers", grade == "C" ? .medium : .high, "Cifrari TLS deboli (grado \(grade))",
-                        "nmap valuta il cifrario più debole accettato con grado \(grade).",
-                        "Rimuovi cifrari RC4, 3DES, export e senza forward secrecy.", p)
+                    add("tls-weak-ciphers", grade == "C" ? .medium : .high, "Weak TLS ciphers (grade \(grade))",
+                        "nmap rates the weakest accepted cipher as grade \(grade).",
+                        "Remove RC4, 3DES, export and non-forward-secret ciphers.", p)
                 }
             }
             if let cert = p.script("ssl-cert") {
                 if let expiry = certExpiry(cert) {
                     if expiry < now {
-                        add("cert-expired", .medium, "Certificato TLS scaduto",
-                            "Il certificato è scaduto il \(expiry.formatted(date: .abbreviated, time: .omitted)).",
-                            "Rinnova il certificato.", p)
+                        add("cert-expired", .medium, "Expired TLS certificate",
+                            "The certificate expired on \(expiry.formatted(date: .abbreviated, time: .omitted)).",
+                            "Renew the certificate.", p)
                     } else if expiry < now.addingTimeInterval(30 * 86400) {
-                        add("cert-expiring", .low, "Certificato TLS in scadenza",
-                            "Scade il \(expiry.formatted(date: .abbreviated, time: .omitted)).",
-                            "Pianifica il rinnovo.", p)
+                        add("cert-expiring", .low, "TLS certificate expiring soon",
+                            "It expires on \(expiry.formatted(date: .abbreviated, time: .omitted)).",
+                            "Plan the renewal.", p)
                     }
                 }
                 if isSelfSigned(cert) {
-                    add("cert-self-signed", .info, "Certificato self-signed",
-                        "Normale per router e NAS, ma non protegge dal man-in-the-middle.",
-                        "Usa un certificato di una CA interna o pubblica se possibile.", p)
+                    add("cert-self-signed", .info, "Self-signed certificate",
+                        "Normal for routers and NAS devices, but it does not protect against man-in-the-middle attacks.",
+                        "Use a certificate from an internal or public CA if possible.", p)
                 }
             }
 
             if let dh = p.script("ssl-dh-params"), dh.contains("VULNERABLE") {
-                add("tls-weak-dh", .medium, "Parametri Diffie-Hellman deboli",
-                    "Lo scambio di chiavi usa gruppi DH piccoli o comuni (attacchi tipo Logjam).",
-                    "Usa gruppi DH da almeno 2048 bit oppure solo ECDHE.", p, evidence: firstLines(dh, max: 3))
+                add("tls-weak-dh", .medium, "Weak Diffie-Hellman parameters",
+                    "Key exchange uses small or common DH groups (Logjam-style attacks).",
+                    "Use DH groups of at least 2048 bits, or ECDHE only.", p, evidence: firstLines(dh, max: 3))
             }
 
             // --- Web
             if let headers = p.script("http-security-headers"), headers.contains("HSTS not configured") {
-                add("http-no-hsts", .low, "HTTPS senza HSTS",
-                    "Il sito non impone HTTPS al browser: un attaccante in LAN può forzare la versione non cifrata (SSL stripping).",
-                    "Abilita l'header Strict-Transport-Security, se il dispositivo lo consente.", p)
+                add("http-no-hsts", .low, "HTTPS without HSTS",
+                    "The site does not force HTTPS in the browser: an attacker on the LAN can force the unencrypted version (SSL stripping).",
+                    "Enable the Strict-Transport-Security header, if the device allows it.", p)
             }
             if let methods = p.script("http-methods"), let risky = riskyMethods(methods) {
                 let writes = risky.filter { ["PUT", "DELETE", "MOVE", "COPY", "PROPPATCH", "MKCOL"].contains($0) }
                 add("http-risky-methods", writes.isEmpty ? .low : .medium,
-                    "Metodi HTTP rischiosi abilitati (\(risky.joined(separator: ", ")))",
+                    "Risky HTTP methods enabled (\(risky.joined(separator: ", ")))",
                     writes.isEmpty
-                        ? "TRACE può essere sfruttato per leggere cookie e header (cross-site tracing)."
-                        : "Il server accetta metodi che possono modificare o cancellare file.",
-                    "Disabilita i metodi non necessari nella configurazione del server web.", p)
+                        ? "TRACE can be abused to read cookies and headers (cross-site tracing)."
+                        : "The server accepts methods that can modify or delete files.",
+                    "Disable unneeded methods in the web server configuration.", p)
             }
 
             // --- Chiavi SSH
             if let keys = p.script("ssh-hostkey") {
                 let weak = weakHostKeys(keys)
                 if !weak.isEmpty {
-                    add("ssh-weak-hostkey", .low, "Chiavi host SSH deboli",
-                        "Il server usa chiavi obsolete: \(weak.joined(separator: ", ")).",
-                        "Rigenera le chiavi host (Ed25519 o RSA ≥ 3072 bit) e rimuovi DSA.", p)
+                    add("ssh-weak-hostkey", .low, "Weak SSH host keys",
+                        "The server uses obsolete keys: \(weak.joined(separator: ", ")).",
+                        "Regenerate the host keys (Ed25519 or RSA ≥ 3072 bits) and remove DSA.", p)
                 }
             }
 
             // --- UDP
             if svc == "snmp" || (p.proto == "udp" && p.number == 161) {
                 if let info = p.script("snmp-info"), !info.isEmpty {
-                    add("snmp-public", .high, "SNMP risponde con community predefinita",
-                        "Il dispositivo restituisce informazioni con la community «public».",
-                        "Cambia la community, limita gli IP o passa a SNMPv3.", p, evidence: firstLines(info))
+                    add("snmp-public", .high, "SNMP answers with the default community",
+                        "The device returns information with the “public” community.",
+                        "Change the community, restrict IPs or move to SNMPv3.", p, evidence: firstLines(info))
                 } else {
-                    add("snmp", .medium, "SNMP attivo",
-                        "SNMP v1/v2c usa community in chiaro.",
-                        "Usa SNMPv3 o disattivalo se non serve.", p)
+                    add("snmp", .medium, "SNMP enabled",
+                        "SNMP v1/v2c uses cleartext communities.",
+                        "Use SNMPv3, or disable it if not needed.", p)
                 }
             }
             if p.proto == "udp", p.number == 1900 || svc == "upnp" {
-                add("upnp", .low, "UPnP/SSDP attivo",
-                    "UPnP consente ai dispositivi di aprire porte sul router automaticamente.",
-                    "Disattiva UPnP sul router se non indispensabile.", p)
+                add("upnp", .low, "UPnP/SSDP enabled",
+                    "UPnP lets devices open ports on the router automatically.",
+                    "Disable UPnP on the router unless it is essential.", p)
             }
             if let rec = p.script("dns-recursion"), rec.contains("enabled") {
-                add("dns-recursion", .info, "Resolver DNS ricorsivo",
-                    "Normale in LAN; critico se la porta 53 è raggiungibile da Internet.",
-                    "Verifica che il DNS non sia esposto all'esterno.", p)
+                add("dns-recursion", .info, "Recursive DNS resolver",
+                    "Normal on a LAN; critical if port 53 is reachable from the Internet.",
+                    "Check that the DNS server is not exposed to the outside.", p)
             }
         }
 
         // --- Script a livello di host (SMB)
         if let smb = host.hostScript("smb-protocols"), smb.contains("SMBv1") {
-            add("smbv1", .high, "SMBv1 abilitato",
-                "SMBv1 è il protocollo sfruttato da WannaCry/EternalBlue.",
-                "Disabilita SMBv1 sul dispositivo (spesso NAS o stampanti vecchie).",
+            add("smbv1", .high, "SMBv1 enabled",
+                "SMBv1 is the protocol exploited by WannaCry/EternalBlue.",
+                "Disable SMBv1 on the device (often an old NAS or printer).",
                 evidence: firstLines(smb))
         }
         if let mode = host.hostScript("smb2-security-mode"), mode.contains("not required") {
-            add("smb-signing", .medium, "Firma SMB non obbligatoria",
-                "Senza firma SMB sono possibili attacchi di relay NTLM.",
-                "Imposta la firma SMB come obbligatoria.")
+            add("smb-signing", .medium, "SMB signing not required",
+                "Without SMB signing, NTLM relay attacks are possible.",
+                "Make SMB signing mandatory.")
         }
 
         // --- Superficie d'attacco ampia
         let open = host.openPorts.count
         if open >= 20 {
-            add("many-ports", .info, "Molte porte aperte (\(open))",
-                "Un numero elevato di servizi aumenta la superficie d'attacco.",
-                "Verifica quali servizi sono davvero necessari.")
+            add("many-ports", .info, "Many open ports (\(open))",
+                "A large number of services increases the attack surface.",
+                "Check which services are really needed.")
         }
         return f
     }

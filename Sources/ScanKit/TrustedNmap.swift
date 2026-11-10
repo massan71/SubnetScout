@@ -30,15 +30,15 @@ public enum TrustedNmap {
         public var errorDescription: String? {
             switch self {
             case .notFound:
-                "Nessun nmap eseguibile come root trovato."
+                "No nmap that can safely run as root was found."
             case .untrustedPath(let p):
-                "«\(p)» non appartiene a root o è scrivibile da altri utenti: eseguirlo come root non è sicuro."
+                "“\(p)” is not owned by root or is writable by other users: running it as root is not safe."
             case .untrustedLibrary(let l):
-                "nmap carica una libreria non protetta («\(l)»): eseguirlo come root non è sicuro."
+                "nmap loads an unprotected library (“\(l)”): running it as root is not safe."
             case .unreadableBinary(let p):
-                "Impossibile analizzare il binario «\(p)»."
+                "Cannot analyze the binary “\(p)”."
             case .dataDirMissing(let p):
-                "Directory dati di nmap non trovata in «\(p)»."
+                "nmap data directory not found in “\(p)”."
             }
         }
     }

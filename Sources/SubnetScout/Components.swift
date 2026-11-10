@@ -57,13 +57,13 @@ struct GradeBadge: View {
 
 struct NewBadge: View {
     var body: some View {
-        Text("NUOVO")
+        Text("NEW")
             .font(.system(size: 9, weight: .heavy))
             .padding(.horizontal, 4)
             .padding(.vertical, 1)
             .foregroundStyle(.orange)
             .overlay(Capsule().stroke(.orange, lineWidth: 1))
             .fixedSize()   // si accorcia il nome del dispositivo, mai il badge
-            .help("Dispositivo non ancora segnato come noto")
+            .help("Device not marked as known yet")
     }
 }

@@ -6,19 +6,19 @@ public enum DeviceKind: String, Codable, Sendable, CaseIterable {
 
     public var label: String {
         switch self {
-        case .router: "Router / rete"
+        case .router: "Router / network"
         case .mac: "Mac"
         case .computer: "Computer"
         case .phone: "Smartphone / tablet"
-        case .printer: "Stampante"
+        case .printer: "Printer"
         case .nas: "NAS"
-        case .camera: "Telecamera"
+        case .camera: "Camera"
         case .tv: "TV / media"
         case .speaker: "Speaker"
-        case .iot: "IoT / domotica"
+        case .iot: "IoT / smart home"
         case .server: "Server"
-        case .virtualMachine: "Macchina virtuale"
-        case .unknown: "Sconosciuto"
+        case .virtualMachine: "Virtual machine"
+        case .unknown: "Unknown"
         }
     }
 
@@ -72,7 +72,7 @@ extension Host {
         if any(["vmware", "parallels", "qemu", "xensource", "proxmox", "virtualbox"], in: v) { return .virtualMachine }
         if any(["espressif", "tuya", "shelly", "philips lighting", "signify", "nest", "ring", "tp-link", "xiaomi"], in: v) { return .iot }
         if any(["ubiquiti", "netgear", "mikrotik", "cisco", "juniper", "aruba", "zyxel", "fritz", "avm", "firewalla"], in: v) { return .router }
-        if v.contains("randomizzato") { return .phone }
+        if v.contains("randomized") || v.contains("randomizzato") { return .phone }
         if os.contains("windows") || svcs.contains("microsoft-ds") || svcs.contains("ms-wbt-server") { return .computer }
         if v.contains("apple") { return .mac }
         if os.contains("linux") || svcs.contains("ssh") { return .server }

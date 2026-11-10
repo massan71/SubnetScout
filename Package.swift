@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "SubnetScout",
-    defaultLocalization: "it",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "SubnetScout", targets: ["SubnetScout"]),

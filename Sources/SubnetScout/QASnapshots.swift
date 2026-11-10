@@ -46,21 +46,21 @@ enum QASnapshots {
             await snap(ContentView().environment(model), size: CGSize(width: 1400, height: 860), name: name, dir: dir)
         }
 
-        await main("01-dispositivi") { model.resultsMode = .devices; model.selectedHostID = worst?.id }
-        await main("02-problemi") { model.resultsMode = .findings }
-        await main("03-rete") { model.resultsMode = .network }
+        await main("01-devices") { model.resultsMode = .devices; model.selectedHostID = worst?.id }
+        await main("02-issues") { model.resultsMode = .findings }
+        await main("03-network") { model.resultsMode = .network }
         if let (scan, host) = withCVE {
             await main("04-cve") { model.show(scan); model.resultsMode = .devices; model.selectedHostID = host.id }
         }
         await snap(ScheduleSettingsView().environment(model).frame(width: 540), size: CGSize(width: 540, height: 640),
-                   name: "05-impostazioni-pianificazione", dir: dir)
+                   name: "05-settings-schedule", dir: dir)
         await snap(CVESettingsView().frame(width: 540), size: CGSize(width: 540, height: 520),
-                   name: "06-impostazioni-cve", dir: dir)
+                   name: "06-settings-cve", dir: dir)
         await snap(VStack(alignment: .leading, spacing: 6) { MenuBarContent().environment(model) }
                     .buttonStyle(.borderless).padding(12).frame(width: 320, alignment: .leading),
                    size: CGSize(width: 320, height: 260), name: "07-menu", dir: dir)
         await snap(OnboardingView(onDone: {}).environment(model), size: CGSize(width: 620, height: 560),
-                   name: "08-primo-avvio", dir: dir)
+                   name: "08-onboarding", dir: dir)
     }
 
     static func snap<V: View>(_ view: V, size: CGSize, name: String, dir: URL) async {

@@ -29,20 +29,20 @@ struct SubnetScoutApp: App {
         }
         .commands {
             CommandGroup(after: .newItem) {
-                Button("Avvia scansione") { model.startScan() }
+                Button("Start Scan") { model.startScan() }
                     .keyboardShortcut("r", modifiers: .command)
                     .disabled(model.isScanning || model.nmapPath == nil)
-                Button("Interrompi scansione") { model.cancelScan() }
+                Button("Stop Scan") { model.cancelScan() }
                     .keyboardShortcut(".", modifiers: .command)
                     .disabled(!model.isScanning)
                 Divider()
-                Button("Esporta report HTML…") { model.export(.html) }
+                Button("Export HTML Report…") { model.export(.html) }
                     .keyboardShortcut("e", modifiers: .command)
                     .disabled(model.current == nil)
             }
             CommandGroup(replacing: .help) {
-                Button("Configurazione guidata…") { model.showOnboarding = true }
-                Link("SubnetScout su GitHub", destination: URL(string: "https://github.com/massan71/SubnetScout")!)
+                Button("Setup Assistant…") { model.showOnboarding = true }
+                Link("SubnetScout on GitHub", destination: URL(string: "https://github.com/massan71/SubnetScout")!)
             }
         }
         MenuBarExtra(isInserted: $showMenuBar) {

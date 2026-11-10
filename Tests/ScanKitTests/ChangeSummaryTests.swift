@@ -27,7 +27,7 @@ import Testing
         let s = ChangeSummary(previous: scan([a]), current: scan([a2, b, c]), trusted: ["AA:00:00:00:00:30"])
         #expect(s.newDevices == 1, "c è noto")
         #expect(s.openedPorts == 1)
-        #expect(s.body == "1 nuovo dispositivo · 1 porta aperta")
+        #expect(s.body == "1 new device · 1 opened port")
         #expect(!s.body.contains("192.168"), "niente IP nelle notifiche")
     }
 
@@ -39,8 +39,8 @@ import Testing
         #expect(s.newIssues == 1, "la gravità bassa non notifica")
         #expect(s.newCVEServices == 1)
         #expect(s.worst == .critical)
-        #expect(s.title.contains("problemi di sicurezza"))
-        #expect(s.body == "1 nuovo problema · 1 servizio con nuove CVE (gravità massima: critica)")
+        #expect(s.title.contains("security issues"))
+        #expect(s.body == "1 new issue · 1 service with new CVEs (highest severity: critical)")
     }
 
     @Test func unchangedNetworkIsEmpty() {

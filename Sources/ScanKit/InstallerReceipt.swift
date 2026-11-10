@@ -21,13 +21,13 @@ public enum InstallerReceipt {
         public var errorDescription: String? {
             switch self {
             case .receiptMissing:
-                "Ricevuta dell'installer di nmap non trovata: reinstalla nmap con il pacchetto ufficiale di nmap.org."
+                "nmap installer receipt not found: reinstall nmap with the official package from nmap.org."
             case .modified(let f):
-                "nmap.app è stato modificato dopo l'installazione («\(f)»): reinstallalo dal pacchetto ufficiale prima di usarlo come root."
+                "nmap.app was modified after installation (“\(f)”): reinstall it from the official package before using it as root."
             case .unexpected(let f):
-                "nmap.app contiene un file non previsto dall'installer («\(f)»): reinstallalo dal pacchetto ufficiale."
+                "nmap.app contains a file the installer did not install (“\(f)”): reinstall it from the official package."
             case .missing(let f):
-                "Manca un file di nmap.app («\(f)»): reinstallalo dal pacchetto ufficiale."
+                "A file of nmap.app is missing (“\(f)”): reinstall it from the official package."
             }
         }
     }

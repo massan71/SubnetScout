@@ -9,13 +9,13 @@ public enum NmapError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notInstalled:
-            "nmap non trovato. Installalo con: brew install nmap"
+            "nmap not found. Install it with: brew install nmap"
         case .failed(let status, let stderr):
-            "nmap è terminato con codice \(status).\n\(stderr.trimmingCharacters(in: .whitespacesAndNewlines))"
+            "nmap exited with code \(status).\n\(stderr.trimmingCharacters(in: .whitespacesAndNewlines))"
         case .noOutput(let stderr):
-            "nmap non ha prodotto risultati.\n\(stderr.trimmingCharacters(in: .whitespacesAndNewlines))"
+            "nmap produced no results.\n\(stderr.trimmingCharacters(in: .whitespacesAndNewlines))"
         case .authorizationCancelled:
-            "Autorizzazione amministratore annullata."
+            "Administrator authorization cancelled."
         }
     }
 }

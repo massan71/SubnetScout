@@ -11,9 +11,9 @@ public enum PrivateTargets {
         public var errorDescription: String? {
             switch self {
             case .notPrivate(let t):
-                "«\(t)» non è un indirizzo di rete privata: il helper scansiona solo reti locali."
+                "“\(t)” is not a private network address: the helper only scans local networks."
             case .unresolvable(let t):
-                "Impossibile risolvere «\(t)»."
+                "Cannot resolve “\(t)”."
             }
         }
     }

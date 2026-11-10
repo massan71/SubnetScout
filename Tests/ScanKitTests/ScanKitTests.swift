@@ -124,7 +124,7 @@ import Testing
         let db = MACVendorDB(prefixes: ["BC2411": "Proxmox", "70B3D5123": "Long prefix Co"])
         #expect(db.vendor(for: "BC:24:11:00:00:01") == "Proxmox")
         #expect(db.vendor(for: "70:B3:D5:12:34:56") == "Long prefix Co")
-        #expect(db.vendor(for: "BE:00:00:00:00:01") == "MAC privato (randomizzato)")
+        #expect(db.vendor(for: "BE:00:00:00:00:01") == "Private MAC (randomized)")
         #expect(db.vendor(for: "00:11:22:33:44:55") == nil)
     }
 
@@ -170,7 +170,7 @@ import Testing
     func homebrewNmapIsRejected() {
         #expect(throws: TrustedNmap.Problem.self) { try TrustedNmap.check("/opt/homebrew/bin/nmap") }
         if case .failure(let p) = TrustedNmap.resolve(candidates: ["/opt/homebrew/bin/nmap"]) {
-            #expect(p.localizedDescription.contains("non appartiene a root"))
+            #expect(p.localizedDescription.contains("is not owned by root"))
         } else {
             Issue.record("Homebrew nmap non deve risultare affidabile")
         }

@@ -10,34 +10,34 @@ struct MenuBarContent: View {
 
     var body: some View {
         if case .scanning(let progress) = model.phase {
-            Text("Scansione in corso… \(Int((progress ?? 0) * 100))%")
+            Text("Scanning… \(Int((progress ?? 0) * 100))%")
             if !model.scanStage.isEmpty { Text(model.scanStage) }
         } else if let last = model.history.first {
             let risk = last.risk
-            Text("Ultima: \(last.finishedAt.formatted(.relative(presentation: .named))) · voto \(risk.grade)")
-            Text("\(last.hosts.count) dispositivi · \(last.findings.filter { $0.severity >= .medium }.count) problemi rilevanti")
+            Text("Last: \(last.finishedAt.formatted(.relative(presentation: .named))) · grade \(risk.grade)")
+            Text("\(last.hosts.count) devices · \(last.findings.filter { $0.severity >= .medium }.count) relevant issues")
         } else {
-            Text("Nessuna scansione")
+            Text("No scans yet")
         }
         if let next = model.scheduler?.nextRun {
-            Text("Prossima: \(next.formatted(.relative(presentation: .named)))")
+            Text("Next: \(next.formatted(.relative(presentation: .named)))")
         }
         if let skip = model.scheduler?.lastSkipReason {
             Text("⚠︎ \(skip)")
         }
 
         Divider()
-        Button(model.isScanning ? "Interrompi scansione" : "Scansiona ora") {
+        Button(model.isScanning ? "Stop Scan" : "Scan Now") {
             if model.isScanning { model.cancelScan() } else { model.startScan() }
         }
         .disabled(model.nmapPath == nil)
-        Button("Apri SubnetScout") {
+        Button("Open SubnetScout") {
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)
         }
-        SettingsLink { Text("Impostazioni…") }
+        SettingsLink { Text("Settings…") }
         Divider()
-        Button("Esci da SubnetScout") { NSApp.terminate(nil) }
+        Button("Quit SubnetScout") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }
 }
@@ -48,9 +48,9 @@ struct SettingsTabs: View {
     var body: some View {
         TabView {
             ScheduleSettingsView()
-                .tabItem { Label("Pianificazione", systemImage: "clock") }
+                .tabItem { Label("Schedule", systemImage: "clock") }
             CVESettingsView()
-                .tabItem { Label("Vulnerabilità", systemImage: "shield.lefthalf.filled") }
+                .tabItem { Label("Vulnerabilities", systemImage: "shield.lefthalf.filled") }
         }
         .frame(width: 540)
     }
@@ -70,37 +70,37 @@ struct ScheduleSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Scansione programmata") {
-                Toggle("Scansiona la rete automaticamente", isOn: $enabled)
-                Picker("Frequenza", selection: $interval) {
+            Section("Scheduled scan") {
+                Toggle("Scan the network automatically", isOn: $enabled)
+                Picker("Frequency", selection: $interval) {
                     ForEach(ScheduleSettings.Interval.allCases) { Text($0.label).tag($0.rawValue) }
                 }
-                Picker("Profilo", selection: $profile) {
+                Picker("Profile", selection: $profile) {
                     ForEach(ScanProfile.allCases.filter { $0 != .full }) { Text($0.name).tag($0.rawValue) }
                 }
                 LabeledContent("Target") {
-                    TextField("Target", text: $target, prompt: Text("Rete attuale (automatica)"))
+                    TextField("Target", text: $target, prompt: Text("Current network (automatic)"))
                         .labelsHidden()
                         .multilineTextAlignment(.trailing)
                         .font(.body.monospaced())
                 }
-                Toggle("Come amministratore (OS, UDP, sonda DHCP)", isOn: $fullPrivileges)
+                Toggle("As administrator (OS, UDP, DHCP probe)", isOn: $fullPrivileges)
                 Text(statusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("Notifiche") {
-                Toggle("Avvisami quando cambia qualcosa", isOn: $notify)
-                Button("Invia notifica di prova") { Notifier.postTest() }
-                Text("Nuovi dispositivi non segnati come noti, porte aperte, nuovi problemi di gravità media o superiore, nuove CVE. Le notifiche contengono solo conteggi, mai indirizzi o nomi.")
+            Section("Notifications") {
+                Toggle("Notify me when something changes", isOn: $notify)
+                Button("Send Test Notification") { Notifier.postTest() }
+                Text("New devices not marked as known, opened ports, new issues of medium severity or higher, new CVEs. Notifications contain only counts, never addresses or names.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("Sempre attiva") {
-                Toggle("Mostra nella barra dei menu", isOn: $showMenuBar)
-                Toggle("Apri all'accesso", isOn: $launchAtLogin)
+            Section("Always on") {
+                Toggle("Show in menu bar", isOn: $showMenuBar)
+                Toggle("Open at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, on in
                         do { try LoginItem.set(on); loginError = nil } catch {
                             loginError = error.localizedDescription
@@ -108,7 +108,7 @@ struct ScheduleSettingsView: View {
                         }
                     }
                 if let loginError { Text(loginError).font(.caption).foregroundStyle(.red) }
-                Text("Le scansioni programmate partono solo mentre SubnetScout è aperta: con l'icona nella barra dei menu resta attiva anche chiudendo la finestra.")
+                Text("Scheduled scans only run while SubnetScout is open: with the menu bar icon it keeps running even when you close the window.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -119,16 +119,16 @@ struct ScheduleSettingsView: View {
     }
 
     private var statusText: String {
-        guard enabled else { return "Disattivata." }
+        guard enabled else { return "Off." }
         var parts: [String] = []
         if let next = model.scheduler?.nextRun {
-            parts.append("Prossima scansione \(next.formatted(.relative(presentation: .named))).")
+            parts.append("Next scan \(next.formatted(.relative(presentation: .named))).")
         }
         if !model.usesHelper {
-            parts.append("Senza helper le scansioni programmate girano come utente normale e possono essere limitate da macOS.")
+            parts.append("Without the helper, scheduled scans run as a normal user and may be limited by macOS.")
         }
         if target.isEmpty {
-            parts.append("Con il target automatico vengono saltate le reti più grandi di /22.")
+            parts.append("With the automatic target, networks larger than /22 are skipped.")
         }
         return parts.joined(separator: " ")
     }

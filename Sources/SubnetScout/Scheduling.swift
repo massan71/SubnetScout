@@ -22,10 +22,10 @@ enum ScheduleSettings {
         var id: Double { rawValue }
         var label: String {
             switch self {
-            case .hourly: "Ogni ora"
-            case .every6h: "Ogni 6 ore"
-            case .daily: "Ogni giorno"
-            case .weekly: "Ogni settimana"
+            case .hourly: "Every hour"
+            case .every6h: "Every 6 hours"
+            case .daily: "Every day"
+            case .weekly: "Every week"
             }
         }
     }
@@ -102,9 +102,9 @@ final class ScanScheduler {
         // Nessuna scansione durante la verifica visiva (--qa-snapshots).
         if CommandLine.arguments.contains("--qa-snapshots") { return }
         guard ScheduleSettings.enabled, let nextRun, Date() >= nextRun, let model else { return }
-        guard !model.isScanning else { lastSkipReason = "Un'altra scansione era in corso."; return }
+        guard !model.isScanning else { lastSkipReason = "Another scan was in progress."; return }
         guard let targets = Self.resolveTargets() else {
-            lastSkipReason = "Nessuna rete locale adatta (offline, oppure la rete è più grande di /22)."
+            lastSkipReason = "No suitable local network (offline, or the network is larger than /22)."
             return
         }
         if model.launch(targets: targets, profile: ScheduleSettings.profile,
@@ -147,7 +147,7 @@ enum Notifier {
             }
             let content = UNMutableNotificationContent()
             content.title = "SubnetScout"
-            content.body = "Le notifiche funzionano: riceverai un avviso quando una scansione programmata trova cambiamenti."
+            content.body = "Notifications work: you will be alerted when a scheduled scan finds changes."
             UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "test", content: content, trigger: nil))
         }
     }

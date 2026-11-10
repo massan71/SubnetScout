@@ -76,7 +76,7 @@ final class AppModel {
                 self.history = all + self.history.filter { s in !all.contains { $0.id == s.id } }
                 self.historyLoading = false
                 if unreadable > 0 {
-                    self.historyWarning = "\(unreadable) scansioni salvate non sono leggibili: la chiave di cifratura nel Portachiavi manca, è cambiata o l'accesso è stato negato."
+                    self.historyWarning = "\(unreadable) saved scans cannot be read: the encryption key in the Keychain is missing, has changed, or access was denied."
                 }
                 if self.current == nil, let last = self.history.first { self.show(last) }
             }
@@ -128,7 +128,7 @@ final class AppModel {
                     await refreshHelper()
                 }
             } catch {
-                helperState = .error("Installazione non riuscita: \(error.localizedDescription)")
+                helperState = .error("Installation failed: \(error.localizedDescription)")
             }
         }
     }
@@ -155,7 +155,7 @@ final class AppModel {
             do {
                 try await HelperClient.uninstall()
             } catch {
-                phase = .failed("Disinstallazione non riuscita: \(error.localizedDescription)")
+                phase = .failed("Uninstall failed: \(error.localizedDescription)")
             }
             await refreshHelper()
         }
@@ -195,7 +195,7 @@ final class AppModel {
         guard !isScanning, let nmapPath else { return false }
         // Senza rotta predefinita il Mac non è in rete: una scansione della LAN darebbe 0 dispositivi.
         if origin == .manual, PrivateTargets.allPrivate(targets), NetworkInfo.defaultRoute().gateway == nil {
-            phase = .failed("Il Mac non risulta collegato a nessuna rete. Collegati al Wi-Fi o via cavo e riprova.")
+            phase = .failed("This Mac does not seem to be connected to any network. Connect to Wi-Fi or Ethernet and try again.")
             return false
         }
         let engine = ScanEngine(nmapPath: nmapPath)
@@ -208,8 +208,8 @@ final class AppModel {
             : LocalNmapExecutor(nmapPath: nmapPath, askPassword: askPassword)
         phase = .scanning(progress: 0)
         scanStartedAt = Date()
-        scanSummary = profile.name + (helperForThis ? " · helper" : askPassword ? " · password" : " · utente")
-            + (origin == .scheduled ? " · programmata" : "")
+        scanSummary = profile.name + (helperForThis ? " · helper" : askPassword ? " · password" : " · user")
+            + (origin == .scheduled ? " · scheduled" : "")
 
         // ARP e UPnP: con il helper attivo li legge lui (non è soggetto al permesso
         // «Rete locale», che macOS può negare all'app); se fallisce, li legge l'app.
@@ -228,7 +228,7 @@ final class AppModel {
         let trustedNow = trusted
         // Evita che App Nap rallenti una scansione con la finestra nascosta.
         let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled],
-                                                             reason: "Scansione di rete")
+                                                             reason: "Network scan")
 
         scanTask = Task {
             defer { ProcessInfo.processInfo.endActivity(activity) }
@@ -247,7 +247,7 @@ final class AppModel {
                 // Fuori dal thread principale: la chiave del Portachiavi può richiedere conferma.
                 let store = self.store
                 if case .failure(let error) = await Task.detached(operation: { try store.save(result) }).result {
-                    historyWarning = "Scansione non salvata nello storico: \(error.localizedDescription)"
+                    historyWarning = "Scan not saved to history: \(error.localizedDescription)"
                 }
                 history.insert(result, at: 0)
                 if origin == .manual || current == nil || current?.target == result.target { show(result) }
@@ -338,7 +338,7 @@ final class AppModel {
             try data(for: format, result: current).write(to: url, options: .atomic)
             if format == .html { NSWorkspace.shared.open(url) }
         } catch {
-            phase = .failed("Esportazione non riuscita: \(error.localizedDescription)")
+            phase = .failed("Export failed: \(error.localizedDescription)")
         }
     }
 

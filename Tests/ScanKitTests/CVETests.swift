@@ -79,8 +79,8 @@ let nvdSample = """
         #expect(f.count == 1)
         #expect(f[0].severity == .critical)
         #expect(f[0].port == "22/tcp")
-        #expect(f[0].title == "2 vulnerabilità note in openssh 9.3")
-        #expect(f[0].detail.contains("1 sfruttata attivamente"))
+        #expect(f[0].title == "2 known vulnerabilities in openssh 9.3")
+        #expect(f[0].detail.contains("1 is actively exploited"))
         #expect(f[0].evidence?.hasPrefix("CVE-2023-38408 (9.8) KEV") == true)
     }
 

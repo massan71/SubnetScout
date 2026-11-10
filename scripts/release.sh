@@ -106,18 +106,20 @@ FULL_NOTES="$OUT/notes.md"
   cat "$NOTES"
   cat <<EOF
 
-## Installazione
+## Install
 
-1. Installa nmap: \`brew install nmap\` oppure il pacchetto ufficiale di [nmap.org](https://nmap.org/download.html#macosx).
-2. Scarica \`SubnetScout-$VERSION.zip\`, estrailo e sposta \`SubnetScout.app\` in \`/Applications\` (sostituendo la versione precedente).
-3. **Questa build non è notarizzata** (firma ad-hoc, senza Apple Developer ID): la prima volta macOS la blocca. Vai in **Impostazioni di Sistema › Privacy e sicurezza** e premi **Apri comunque**.
-4. Facoltativo, per le scansioni come amministratore senza password: attiva «Come amministratore», premi **Installa helper…** e approvalo in **Impostazioni di Sistema › Generali › Elementi login ed estensioni**. Il helper esegue solo un nmap di proprietà di root: con il pacchetto di nmap.org usa **Copia nmap in posizione protetta…**.
+\`brew install --cask massan71/tap/subnetscout\` (also installs nmap), or manually:
 
-Richiede macOS 14 o successivo. Binario universale (Apple Silicon e Intel).
+1. Install nmap: \`brew install nmap\` or the official package from [nmap.org](https://nmap.org/download.html#macosx).
+2. Download \`SubnetScout-$VERSION.zip\`, unzip it and move \`SubnetScout.app\` to \`/Applications\` (replacing the previous version).
+3. **This build is not notarized** (no Apple Developer ID): the first time, macOS blocks it. Go to **System Settings › Privacy & Security** and click **Open Anyway**.
+4. Recommended: click **Install Helper…** in the sidebar and approve it in **System Settings › General › Login Items & Extensions**, so scans never ask for a password. The helper only runs a root-owned nmap: with the nmap.org package use **Copy nmap to Protected Location…**.
 
-⚠️ Usa SubnetScout solo su reti tue o per cui hai un'autorizzazione esplicita.
+Requires macOS 14 or later. Universal binary (Apple silicon and Intel).
 
-SHA-256 di \`SubnetScout-$VERSION.zip\`:
+⚠️ Only use SubnetScout on networks you own or are explicitly authorized to test.
+
+SHA-256 of \`SubnetScout-$VERSION.zip\`:
 \`$SHA\`
 EOF
 } > "$FULL_NOTES"

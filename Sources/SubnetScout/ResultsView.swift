@@ -5,7 +5,7 @@ struct ResultsView: View {
     @Environment(AppModel.self) private var model
     let result: ScanResult
 
-    enum Mode: String, CaseIterable { case devices = "Dispositivi", findings = "Problemi", network = "Rete" }
+    enum Mode: String, CaseIterable { case devices = "Devices", findings = "Issues", network = "Network" }
     @State private var search = ""
     @State private var onlyIssues = false
     @State private var sortOrder = [KeyPathComparator(\HostRow.ipKey)]
@@ -21,11 +21,11 @@ struct ResultsView: View {
                 // Quasi tutto è «NUOVO»: spiega a cosa serve e offri la scorciatoia.
                 HStack(spacing: 10) {
                     Image(systemName: "lightbulb").foregroundStyle(.yellow)
-                    Text("Segna come noti i dispositivi che riconosci: da quel momento «NUOVO» e le notifiche riguarderanno solo quelli davvero nuovi.")
+                    Text("Mark the devices you recognize as known: from then on, “NEW” and notifications only refer to devices that are really new.")
                         .font(.callout)
                         .lineLimit(2)
                     Spacer()
-                    Button("Segna tutti come noti") { model.trustAll() }
+                    Button("Mark All as Known") { model.trustAll() }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
@@ -40,15 +40,15 @@ struct ResultsView: View {
         }
         // In caso di contenuto troppo alto si taglia il fondo (la tabella scorre), mai l'intestazione.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .searchable(text: $search, placement: .toolbar, prompt: "Cerca IP, nome, produttore, servizio")
+        .searchable(text: $search, placement: .toolbar, prompt: "Search IP, name, vendor, service")
         .navigationTitle(result.target)
-        .navigationSubtitle("\(result.hosts.count) dispositivi · \(result.finishedAt.formatted(date: .abbreviated, time: .shortened))")
+        .navigationSubtitle("\(result.hosts.count) devices · \(result.finishedAt.formatted(date: .abbreviated, time: .shortened))")
     }
 
     private var header: some View {
         @Bindable var model = model
         return HStack {
-            Picker("Vista", selection: $model.resultsMode) {
+            Picker("View", selection: $model.resultsMode) {
                 ForEach(Mode.allCases, id: \.self) { m in
                     Text(m == .findings ? "\(m.rawValue) (\(result.findings.count))" : m.rawValue).tag(m)
                 }
@@ -58,7 +58,7 @@ struct ResultsView: View {
             .fixedSize()
             Spacer()
             if model.resultsMode == .devices {
-                Toggle("Solo con problemi", isOn: $onlyIssues)
+                Toggle("Only with issues", isOn: $onlyIssues)
                     .toggleStyle(.checkbox)
             }
         }
@@ -94,7 +94,7 @@ struct ResultsView: View {
     private var hostTable: some View {
         @Bindable var model = model
         return Table(rows, selection: $model.selectedHostID, sortOrder: $sortOrder) {
-            TableColumn("Dispositivo", value: \.name) { row in
+            TableColumn("Device", value: \.name) { row in
                 HStack(spacing: 8) {
                     Image(systemName: row.host.kind.symbol)
                         .frame(width: 20)
@@ -113,18 +113,18 @@ struct ResultsView: View {
                 Text(row.host.ip).font(.system(.body, design: .monospaced))
             }
             .width(min: 90, ideal: 96)
-            TableColumn("Produttore", value: \.vendor) { row in
+            TableColumn("Vendor", value: \.vendor) { row in
                 Text(row.vendor.isEmpty ? "—" : row.vendor)
                     .lineLimit(1)
                     .foregroundStyle(row.vendor.isEmpty ? .tertiary : .primary)
             }
             .width(min: 70, ideal: 120)
-            TableColumn("Porte", value: \.openCount) { row in
+            TableColumn("Ports", value: \.openCount) { row in
                 Text(result.profile.scansPorts ? "\(row.openCount)" : "—")
                     .monospacedDigit()
             }
             .width(44)
-            TableColumn("Rischio", value: \.score) { row in
+            TableColumn("Risk", value: \.score) { row in
                 if let worst = row.worst, worst > .info {
                     SeverityPill(severity: worst, text: "\(row.score)")
                 } else {
@@ -135,14 +135,14 @@ struct ResultsView: View {
         }
         .contextMenu(forSelectionType: Host.ID.self) { ids in
             if let id = ids.first, let host = result.hosts.first(where: { $0.id == id }) {
-                Button(model.isTrusted(host) ? "Rimuovi dai dispositivi noti" : "Segna come noto") {
+                Button(model.isTrusted(host) ? "Remove from Known Devices" : "Mark as Known") {
                     model.toggleTrusted(host)
                 }
-                Button("Copia IP") { copy(host.ip) }
-                if let mac = host.mac { Button("Copia MAC") { copy(mac) } }
+                Button("Copy IP") { copy(host.ip) }
+                if let mac = host.mac { Button("Copy MAC") { copy(mac) } }
             }
             Divider()
-            Button("Segna tutti come noti") { model.trustAll() }
+            Button("Mark All as Known") { model.trustAll() }
         }
     }
 
@@ -155,11 +155,11 @@ struct ResultsView: View {
         }
         return Group {
             if filtered.isEmpty {
-                ContentUnavailableView(result.profile.scansPorts ? "Nessun problema rilevato" : "Nessun audit",
+                ContentUnavailableView(result.profile.scansPorts ? "No issues found" : "No audit",
                                        systemImage: "checkmark.shield",
                                        description: Text(result.profile.scansPorts
-                                                         ? "Nessuna regola di audit è scattata."
-                                                         : "Il profilo Discovery non analizza le porte: usa «Standard + audit»."))
+                                                         ? "No audit rule was triggered."
+                                                         : "The Discovery profile does not scan ports: use “Standard + audit”."))
             } else {
                 List(filtered, selection: Binding(
                     get: { nil as Finding.ID? },
@@ -199,13 +199,13 @@ struct DiffBanner: View {
         HStack(spacing: 14) {
             Image(systemName: "arrow.triangle.2.circlepath")
                 .foregroundStyle(.blue)
-            Text("Rispetto al \(diff.previousScanDate.formatted(date: .abbreviated, time: .shortened)):")
+            Text("Since \(diff.previousScanDate.formatted(date: .abbreviated, time: .shortened)):")
                 .foregroundStyle(.secondary)
-            item(diff.newHosts.count, "nuovo dispositivo", "nuovi dispositivi", .orange)
-            item(diff.goneHosts.count, "sparito", "spariti", .secondary)
-            item(diff.openedPorts.count, "porta aperta", "porte aperte", .orange)
-            item(diff.closedPorts.count, "porta chiusa", "porte chiuse", .green)
-            item(diff.newFindings.count, "nuovo problema", "nuovi problemi", .red)
+            item(diff.newHosts.count, "new device", "new devices", .orange)
+            item(diff.goneHosts.count, "gone", "gone", .secondary)
+            item(diff.openedPorts.count, "port opened", "ports opened", .orange)
+            item(diff.closedPorts.count, "port closed", "ports closed", .green)
+            item(diff.newFindings.count, "new issue", "new issues", .red)
             Spacer()
         }
         .font(.callout)

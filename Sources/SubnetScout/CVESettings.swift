@@ -42,32 +42,32 @@ struct CVESettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Cerca vulnerabilità note (CVE)", isOn: $cveEnabled)
-                Text("Dopo ogni scansione con le porte, SubnetScout chiede al database NVD del NIST le CVE dei software trovati. Viene inviato **solo il nome e la versione del software** (es. «openssh 9.6»), mai indirizzi, nomi o altri dati dei tuoi dispositivi. Le risposte restano in cache sul Mac per 7 giorni.")
+                Toggle("Look up known vulnerabilities (CVE)", isOn: $cveEnabled)
+                Text("After each scan with ports, SubnetScout asks NIST's NVD database for the CVEs of the software found. **Only the software name and version** are sent (e.g. “openssh 9.6”), never addresses, names or other data about your devices. Responses are cached on this Mac for 7 days.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                Text("La corrispondenza è basata sulla versione dichiarata: router, NAS e telecamere spesso correggono le falle senza cambiare versione, quindi alcuni risultati possono essere falsi positivi.")
+                Text("Matching is based on the reported version: routers, NAS devices and cameras often fix flaws without changing their version, so some results may be false positives.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } header: { Text("Vulnerabilità note") }
+            } header: { Text("Known vulnerabilities") }
 
             Section {
-                SecureField("Chiave API NVD (facoltativa)", text: $apiKey)
+                SecureField("NVD API key (optional)", text: $apiKey)
                 HStack {
-                    Button("Salva chiave") {
+                    Button("Save Key") {
                         saved = CVESettings.setAPIKey(apiKey)
                     }
-                    Button("Rimuovi") {
+                    Button("Remove") {
                         apiKey = ""
                         CVESettings.setAPIKey(nil)
                         saved = false
                     }
-                    if saved { Label("Salvata nel Portachiavi", systemImage: "checkmark").foregroundStyle(.green).font(.caption) }
+                    if saved { Label("Saved in the Keychain", systemImage: "checkmark").foregroundStyle(.green).font(.caption) }
                 }
-                Text("Senza chiave NVD accetta 5 richieste ogni 30 secondi, quindi la prima ricerca può richiedere qualche minuto. Con una chiave gratuita (nvd.nist.gov/developers/request-an-api-key) è circa 10 volte più veloce.")
+                Text("Without a key, NVD accepts 5 requests every 30 seconds, so the first lookup can take a few minutes. With a free key (nvd.nist.gov/developers/request-an-api-key) it is about 10 times faster.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Button("Svuota la cache CVE") { NVDClient.clearCache() }
+                Button("Clear CVE Cache") { NVDClient.clearCache() }
             } header: { Text("NVD") }
         }
         .formStyle(.grouped)

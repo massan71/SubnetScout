@@ -6,7 +6,7 @@ public enum ReportGenerator {
     // MARK: - HTML
 
     public static func html(for r: ScanResult, diff: ScanDiff? = nil, trusted: Set<String> = [],
-                            title: String = "Report di sicurezza della rete") -> String {
+                            title: String = "Network security report") -> String {
         let risk = r.risk
         let dateStr = r.finishedAt.formatted(date: .long, time: .shortened)
         let duration = Duration.seconds(Int(r.duration)).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .abbreviated))
@@ -18,37 +18,37 @@ public enum ReportGenerator {
         <header>
           <div>
             <h1>\(esc(title))</h1>
-            <p class="muted">Target <code>\(esc(r.target))</code> · \(esc(dateStr)) · durata \(esc(duration))</p>
+            <p class="muted">Target <code>\(esc(r.target))</code> · \(esc(dateStr)) · duration \(esc(duration))</p>
           </div>
           <div class="grade grade-\(risk.grade)">\(risk.grade)</div>
         </header>
 
         <section class="summary">
-          <div class="card"><b>\(r.hosts.count)</b><span>dispositivi attivi</span></div>
-          <div class="card"><b>\(r.hosts.reduce(0) { $0 + $1.openPorts.count })</b><span>porte aperte</span></div>
-          <div class="card"><b>\(risk.score)/100</b><span>punteggio di rischio</span></div>
+          <div class="card"><b>\(r.hosts.count)</b><span>active devices</span></div>
+          <div class="card"><b>\(r.hosts.reduce(0) { $0 + $1.openPorts.count })</b><span>open ports</span></div>
+          <div class="card"><b>\(risk.score)/100</b><span>risk score</span></div>
           <div class="counts">\(counts)</div>
         </section>
 
         <section>
-          <h2>Sintesi</h2>
+          <h2>Summary</h2>
           <p>\(esc(executiveSummary(r)))</p>
         </section>
         """
 
         if let diff, !diff.isEmpty {
-            body += "<section><h2>Cambiamenti dalla scansione del \(esc(diff.previousScanDate.formatted(date: .abbreviated, time: .shortened)))</h2><ul>"
+            body += "<section><h2>Changes since the scan of \(esc(diff.previousScanDate.formatted(date: .abbreviated, time: .shortened)))</h2><ul>"
             for h in diff.newHosts {
-                body += "<li><span class=\"tag new\">nuovo</span> \(esc(h.displayName)) <code>\(esc(h.ip))</code> \(esc(h.vendor ?? ""))</li>"
+                body += "<li><span class=\"tag new\">new</span> \(esc(h.displayName)) <code>\(esc(h.ip))</code> \(esc(h.vendor ?? ""))</li>"
             }
             for h in diff.goneHosts {
-                body += "<li><span class=\"tag gone\">sparito</span> \(esc(h.displayName)) <code>\(esc(h.ip))</code></li>"
+                body += "<li><span class=\"tag gone\">gone</span> \(esc(h.displayName)) <code>\(esc(h.ip))</code></li>"
             }
             for p in diff.openedPorts {
-                body += "<li><span class=\"tag new\">porta aperta</span> \(esc(p.hostName)) <code>\(esc(p.port))</code> \(esc(p.service))</li>"
+                body += "<li><span class=\"tag new\">port opened</span> \(esc(p.hostName)) <code>\(esc(p.port))</code> \(esc(p.service))</li>"
             }
             for p in diff.closedPorts {
-                body += "<li><span class=\"tag gone\">porta chiusa</span> \(esc(p.hostName)) <code>\(esc(p.port))</code> \(esc(p.service))</li>"
+                body += "<li><span class=\"tag gone\">port closed</span> \(esc(p.hostName)) <code>\(esc(p.port))</code> \(esc(p.service))</li>"
             }
             body += "</ul></section>"
         }
@@ -56,11 +56,11 @@ public enum ReportGenerator {
         if let net = r.network { body += networkSection(net) }
 
         // Problemi
-        body += "<section><h2>Problemi rilevati (\(r.findings.count))</h2>"
+        body += "<section><h2>Issues found (\(r.findings.count))</h2>"
         if r.findings.isEmpty {
             body += r.profile.scansPorts
-                ? "<p class=\"muted\">Nessuna regola di audit è scattata.</p>"
-                : "<p class=\"muted\">Il profilo Discovery non analizza le porte: nessun audit eseguito.</p>"
+                ? "<p class=\"muted\">No audit rule was triggered.</p>"
+                : "<p class=\"muted\">The Discovery profile does not scan ports: no audit was run.</p>"
         }
         let byIP = Dictionary(r.hosts.map { ($0.ip, $0) }, uniquingKeysWith: { a, _ in a })
         for f in r.findings {
@@ -71,7 +71,7 @@ public enum ReportGenerator {
                 <h3>\(esc(f.title))</h3>
                 <code>\(esc(hostLabel))\(f.port.map { " · " + esc($0) } ?? "")</code></div>
               <p>\(esc(f.detail))</p>
-              <p class="fix"><b>Rimedio:</b> \(esc(f.remediation))</p>
+              <p class="fix"><b>Remediation:</b> \(esc(f.remediation))</p>
               \(f.evidence.map { "<pre>\(esc($0))</pre>" } ?? "")
             </article>
             """
@@ -91,19 +91,19 @@ public enum ReportGenerator {
                     }
                 }
             }
-            body += "<section><h2>Vulnerabilità note (CVE)</h2>"
+            body += "<section><h2>Known vulnerabilities (CVE)</h2>"
             body += rows.isEmpty
-                ? "<p class=\"muted\">Nessuna CVE nota per le versioni rilevate.</p>"
-                : "<p class=\"muted\">Fonte: NVD (NIST). Corrispondenza basata sulla versione dichiarata dai servizi: da verificare. KEV = sfruttata attivamente secondo CISA.</p><table><thead><tr><th>Servizio</th><th>CVE</th><th>CVSS</th><th>Descrizione</th></tr></thead><tbody>\(rows)</tbody></table>"
+                ? "<p class=\"muted\">No known CVEs for the detected versions.</p>"
+                : "<p class=\"muted\">Source: NVD (NIST). Matched on the version reported by each service: to be verified. KEV = actively exploited according to CISA.</p><table><thead><tr><th>Service</th><th>CVE</th><th>CVSS</th><th>Description</th></tr></thead><tbody>\(rows)</tbody></table>"
             body += "</section>"
         } else if let err = r.cveError {
-            body += "<section><h2>Vulnerabilità note (CVE)</h2><p class=\"muted\">Ricerca non completata: \(esc(err))</p></section>"
+            body += "<section><h2>Known vulnerabilities (CVE)</h2><p class=\"muted\">Lookup not completed: \(esc(err))</p></section>"
         }
 
         // Inventario
         body += """
-        <section><h2>Inventario dispositivi</h2>
-        <table><thead><tr><th>Dispositivo</th><th>IP</th><th>MAC</th><th>Produttore</th><th>Tipo</th><th>Porte aperte</th><th>Rischio</th></tr></thead><tbody>
+        <section><h2>Device inventory</h2>
+        <table><thead><tr><th>Device</th><th>IP</th><th>MAC</th><th>Vendor</th><th>Type</th><th>Open ports</th><th>Risk</th></tr></thead><tbody>
         """
         for h in r.hosts {
             let isNew = !trusted.isEmpty && !trusted.contains(h.deviceKey)
@@ -111,20 +111,20 @@ public enum ReportGenerator {
                 ? h.openPorts.map { "\($0.number)/\($0.proto)" }.joined(separator: ", ")
                 : "—"
             body += """
-            <tr><td>\(esc(h.displayName))\(isNew ? " <span class=\"tag new\">nuovo</span>" : "")\(h.isGateway ? " <span class=\"tag\">gateway</span>" : "")</td>
+            <tr><td>\(esc(h.displayName))\(isNew ? " <span class=\"tag new\">new</span>" : "")\(h.isGateway ? " <span class=\"tag\">gateway</span>" : "")</td>
             <td><code>\(esc(h.ip))</code></td><td><code>\(esc(h.mac ?? "—"))</code></td>
             <td>\(esc(h.vendor ?? "—"))</td><td>\(esc(h.kind.label))\(h.model.map { "<br><span class=\"muted\">" + esc($0) + "</span>" } ?? "")</td>
-            <td class="ports">\(esc(portsStr.isEmpty ? "nessuna" : portsStr))</td><td>\(risk.score(for: h))</td></tr>
+            <td class="ports">\(esc(portsStr.isEmpty ? "none" : portsStr))</td><td>\(risk.score(for: h))</td></tr>
             """
         }
         body += "</tbody></table></section>"
 
         // Appendice tecnica
         if r.profile.scansPorts {
-            body += "<section class=\"appendix\"><h2>Appendice: servizi per dispositivo</h2>"
+            body += "<section class=\"appendix\"><h2>Appendix: services by device</h2>"
             for h in r.hosts where !h.openPorts.isEmpty {
                 body += "<h3>\(esc(h.displayName)) <code>\(esc(h.ip))</code>\(h.bestOSGuess.map { " · " + esc($0.name) } ?? "")</h3>"
-                body += "<table><thead><tr><th>Porta</th><th>Servizio</th><th>Prodotto / versione</th></tr></thead><tbody>"
+                body += "<table><thead><tr><th>Port</th><th>Service</th><th>Product / version</th></tr></thead><tbody>"
                 for p in h.openPorts {
                     body += "<tr><td><code>\(esc(p.id))</code></td><td>\(esc(p.serviceName))\(p.service?.isTLS == true ? " 🔒" : "")</td><td>\(esc(p.service?.productSummary ?? ""))</td></tr>"
                 }
@@ -134,13 +134,13 @@ public enum ReportGenerator {
         }
 
         body += """
-        <footer class="muted">Generato da SubnetScout · profilo «\(esc(r.profile.name))»\(r.privileged ? " (amministratore)" : "")
+        <footer class="muted">Generated by SubnetScout · profile “\(esc(r.profile.name))”\(r.privileged ? " (administrator)" : "")
         · nmap \(esc(r.nmapVersion ?? "?"))<br><code>\(esc(r.nmapArgs ?? ""))</code></footer>
         """
 
         return """
         <!doctype html>
-        <html lang="it"><head><meta charset="utf-8">
+        <html lang="en"><head><meta charset="utf-8">
         <meta http-equiv="Content-Security-Policy" content="\(csp)">
         <meta name="referrer" content="no-referrer">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -154,21 +154,21 @@ public enum ReportGenerator {
         func row(_ k: String, _ v: String) -> String { "<tr><th>\(esc(k))</th><td>\(esc(v))</td></tr>" }
         var rows = ""
         rows += row("Gateway", [n.gatewayIP, n.gatewayMAC].compactMap { $0 }.joined(separator: " · ").nonEmpty ?? "—")
-        rows += row("Server DHCP", n.dhcpServer ?? "—")
-        rows += row("DNS assegnati", n.dnsServers.joined(separator: ", ").nonEmpty ?? "—")
-        rows += row("Ricerca DHCP non autorizzati", n.dhcpProbed
-                    ? (n.dhcpOffers.isEmpty ? "nessuna risposta alla sonda (non conclusivo)" : n.dhcpOffers.map(\.server).joined(separator: ", "))
-                    : "non eseguita (richiede amministratore e profilo Standard/Completo)")
+        rows += row("DHCP server", n.dhcpServer ?? "—")
+        rows += row("Assigned DNS", n.dnsServers.joined(separator: ", ").nonEmpty ?? "—")
+        rows += row("Rogue DHCP check", n.dhcpProbed
+                    ? (n.dhcpOffers.isEmpty ? "no answer to the probe (inconclusive)" : n.dhcpOffers.map(\.server).joined(separator: ", "))
+                    : "not run (requires administrator and the Standard/Full profile)")
         let upnp = n.upnpGateways.map { gw in
-            "\(gw.displayName) (\(gw.ip)): " + (gw.mappings.isEmpty ? "nessuna porta inoltrata" : "\(gw.mappings.count) porte inoltrate")
+            "\(gw.displayName) (\(gw.ip)): " + (gw.mappings.isEmpty ? "no forwarded ports" : "\(gw.mappings.count) forwarded ports")
         }
-        rows += row("Router UPnP", n.upnpError ?? (n.upnpProbed ? (upnp.joined(separator: "; ").nonEmpty ?? "nessuno") : "non controllato"))
-        var html = "<section><h2>Rete</h2><table class=\"kv\"><tbody>\(rows)</tbody></table>"
+        rows += row("UPnP routers", n.upnpError ?? (n.upnpProbed ? (upnp.joined(separator: "; ").nonEmpty ?? "none") : "not checked"))
+        var html = "<section><h2>Network</h2><table class=\"kv\"><tbody>\(rows)</tbody></table>"
         let mappings = n.upnpGateways.flatMap { gw in gw.mappings.map { (gw, $0) } }
         if !mappings.isEmpty {
-            html += "<h3>Porte aperte verso Internet (UPnP)</h3><table><thead><tr><th>Router</th><th>Porta esterna</th><th>Destinazione</th><th>Descrizione</th><th>Attiva</th></tr></thead><tbody>"
+            html += "<h3>Ports open to the Internet (UPnP)</h3><table><thead><tr><th>Router</th><th>External port</th><th>Destination</th><th>Description</th><th>Enabled</th></tr></thead><tbody>"
             for (gw, m) in mappings {
-                html += "<tr><td>\(esc(gw.displayName))</td><td><code>\(m.externalPort)/\(esc(m.proto.lowercased()))</code></td><td><code>\(esc(m.internalClient)):\(m.internalPort)</code></td><td>\(esc(m.description))</td><td>\(m.enabled ? "sì" : "no")</td></tr>"
+                html += "<tr><td>\(esc(gw.displayName))</td><td><code>\(m.externalPort)/\(esc(m.proto.lowercased()))</code></td><td><code>\(esc(m.internalClient)):\(m.internalPort)</code></td><td>\(esc(m.description))</td><td>\(m.enabled ? "yes" : "no")</td></tr>"
             }
             html += "</tbody></table>"
         }
@@ -178,18 +178,18 @@ public enum ReportGenerator {
     static func executiveSummary(_ r: ScanResult) -> String {
         let risk = r.risk
         let crit = risk.counts[.critical] ?? 0, high = risk.counts[.high] ?? 0, med = risk.counts[.medium] ?? 0
-        var s = "Sono stati individuati \(r.hosts.count) dispositivi attivi su \(r.target). "
+        var s = "\(r.hosts.count) active devices were found on \(r.target). "
         guard r.profile.scansPorts else {
-            return s + "La scansione era di sola discovery: per una valutazione dei rischi esegui il profilo «Standard + audit»."
+            return s + "This was a discovery-only scan: run the “Standard + audit” profile for a risk assessment."
         }
         if crit + high == 0 && med == 0 {
-            s += "Non sono emersi problemi rilevanti: la rete ottiene il grado \(risk.grade)."
+            s += "No significant issues were found: the network gets grade \(risk.grade)."
         } else {
-            s += "Il grado complessivo è \(risk.grade) (punteggio \(risk.score)/100), con \(crit) problemi critici, \(high) alti e \(med) medi. "
+            s += "The overall grade is \(risk.grade) (score \(risk.score)/100), with \(crit) critical, \(high) high and \(med) medium issues. "
             let top = Dictionary(grouping: r.findings.filter { $0.severity >= .high }, by: \.title)
                 .sorted { $0.value.count > $1.value.count }.prefix(3)
                 .map { "\($0.key.lowercased()) (\($0.value.count))" }
-            if !top.isEmpty { s += "Priorità: \(top.joined(separator: ", "))." }
+            if !top.isEmpty { s += "Priorities: \(top.joined(separator: ", "))." }
         }
         return s
     }
@@ -234,7 +234,7 @@ public enum ReportGenerator {
 
     /// Una riga per porta aperta (o una riga per host se non ne ha).
     public static func csv(for r: ScanResult) -> String {
-        var lines = ["ip,hostname,mac,vendor,tipo,porta,servizio,prodotto,problemi"]
+        var lines = ["ip,hostname,mac,vendor,type,port,service,product,issues"]
         for h in r.hosts {
             let findings = r.findings(for: h)
             let base = [h.ip, h.hostnames.first ?? "", h.mac ?? "", h.vendor ?? "", h.kind.label]

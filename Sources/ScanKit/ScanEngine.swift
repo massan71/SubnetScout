@@ -48,7 +48,7 @@ public struct ScanEngine: Sendable {
         let queries = CVEAudit.queries(for: hosts)
         if let cveLookup, profile.scansPorts, !queries.isEmpty {
             do {
-                vulnerabilities = try await cveLookup.lookup(queries) { i, n in onStatus("Ricerca CVE \(i) di \(n)") }
+                vulnerabilities = try await cveLookup.lookup(queries) { i, n in onStatus("Looking up CVEs \(i) of \(n)") }
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -77,7 +77,7 @@ public struct ScanEngine: Sendable {
     }
 
     public static let localNetworkMessage =
-        "macOS blocca l'accesso alla rete locale per SubnetScout: attiva il permesso in Impostazioni di Sistema › Privacy e sicurezza › Rete locale, oppure installa il helper (non è soggetto a questo permesso)."
+        "macOS is blocking local network access for SubnetScout: allow it in System Settings › Privacy & Security › Local Network, or install the helper (it is not subject to this permission)."
 
     /// Gateway, lease DHCP e offerte DHCP (se è stato eseguito broadcast-dhcp-discover).
     func networkContext(hosts: [Host], runScripts: [ScriptOutput], nmapArgs: String, arp: [String: String]) -> NetworkContext {

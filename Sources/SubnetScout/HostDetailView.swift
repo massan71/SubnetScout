@@ -34,16 +34,16 @@ struct HostDetailView: View {
                     Text(host.displayName).font(.title2.bold()).textSelection(.enabled)
                     if !model.isTrusted(host) { NewBadge() }
                 }
-                Text(host.kind.label + (host.isGateway ? " · gateway" : "") + (host.isLocalMachine ? " · questo Mac" : ""))
+                Text(host.kind.label + (host.isGateway ? " · gateway" : "") + (host.isLocalMachine ? " · this Mac" : ""))
                     .foregroundStyle(.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 6) {
-                Button(model.isTrusted(host) ? "Dispositivo noto ✓" : "Segna come noto") {
+                Button(model.isTrusted(host) ? "Known Device ✓" : "Mark as Known") {
                     model.toggleTrusted(host)
                 }
                 if let web = webURL {
-                    Button("Apri interfaccia web") { NSWorkspace.shared.open(web) }
+                    Button("Open Web Interface") { NSWorkspace.shared.open(web) }
                 }
             }
         }
@@ -52,13 +52,13 @@ struct HostDetailView: View {
     private var identity: some View {
         Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
             row("IP", host.ip, mono: true)
-            row("MAC", host.mac ?? "— (serve modalità amministratore o voce ARP)", mono: host.mac != nil)
-            row("Produttore", host.vendor ?? "—")
-            if let m = host.model { row("Modello", m) }
-            if let s = host.bonjourServices, !s.isEmpty { row("Servizi Bonjour", s.joined(separator: ", ")) }
+            row("MAC", host.mac ?? "— (needs administrator mode or an ARP entry)", mono: host.mac != nil)
+            row("Vendor", host.vendor ?? "—")
+            if let m = host.model { row("Model", m) }
+            if let s = host.bonjourServices, !s.isEmpty { row("Bonjour services", s.joined(separator: ", ")) }
             if host.hostnames.count > 0 { row("Hostname", host.hostnames.joined(separator: ", ")) }
-            if let os = host.bestOSGuess { row("Sistema", "\(os.name) (\(os.accuracy)%)") }
-            if let ms = host.latencyMs { row("Latenza", String(format: "%.1f ms", ms)) }
+            if let os = host.bestOSGuess { row("System", "\(os.name) (\(os.accuracy)%)") }
+            if let ms = host.latencyMs { row("Latency", String(format: "%.1f ms", ms)) }
         }
         .padding(14)
         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
@@ -77,9 +77,9 @@ struct HostDetailView: View {
     private var findings: some View {
         let list = result.findings(for: host)
         VStack(alignment: .leading, spacing: 10) {
-            Text("Problemi rilevati").font(.headline)
+            Text("Issues found").font(.headline)
             if list.isEmpty {
-                Label(result.profile.scansPorts ? "Nessun problema rilevato" : "Audit non eseguito (profilo Discovery)",
+                Label(result.profile.scansPorts ? "No issues found" : "No audit run (Discovery profile)",
                       systemImage: "checkmark.shield")
                     .foregroundStyle(.secondary)
             }
@@ -113,9 +113,9 @@ struct HostDetailView: View {
 
     private var ports: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Porte aperte (\(host.openPorts.count))").font(.headline)
+            Text("Open ports (\(host.openPorts.count))").font(.headline)
             if host.openPorts.isEmpty {
-                Text("Nessuna porta aperta tra quelle analizzate.").foregroundStyle(.secondary)
+                Text("No open ports among those scanned.").foregroundStyle(.secondary)
             }
             ForEach(host.openPorts) { p in
                 DisclosureGroup {
@@ -129,7 +129,7 @@ struct HostDetailView: View {
                             }
                         }
                         if p.scripts.isEmpty {
-                            Text("Nessun output degli script.").font(.caption).foregroundStyle(.secondary)
+                            Text("No script output.").font(.caption).foregroundStyle(.secondary)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -140,7 +140,7 @@ struct HostDetailView: View {
                         Text(p.serviceName.isEmpty ? "?" : p.serviceName)
                             .frame(width: 110, alignment: .leading)
                         if p.service?.isTLS == true {
-                            Image(systemName: "lock.fill").foregroundStyle(.green).help("Servizio su TLS")
+                            Image(systemName: "lock.fill").foregroundStyle(.green).help("Service over TLS")
                         }
                         Text(p.service?.productSummary ?? "").foregroundStyle(.secondary).lineLimit(1)
                     }
@@ -155,8 +155,8 @@ struct HostDetailView: View {
         let perPort = host.openPorts.map { ($0, CVEAudit.entries(for: $0, in: result.vulnerabilities)) }.filter { !$1.isEmpty }
         if !perPort.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Vulnerabilità note (CVE)").font(.headline)
-                Text("Dalla versione dichiarata dal servizio: da verificare sul dispositivo.")
+                Text("Known vulnerabilities (CVE)").font(.headline)
+                Text("Based on the version reported by the service: verify on the device.")
                     .font(.caption).foregroundStyle(.secondary)
                 ForEach(perPort, id: \.0.id) { port, entries in
                     DisclosureGroup {
@@ -170,11 +170,11 @@ struct HostDetailView: View {
                                         HStack(spacing: 6) {
                                             Link(e.id, destination: e.url).font(.callout.monospaced())
                                             if e.knownExploited {
-                                                Text("SFRUTTATA ATTIVAMENTE")
+                                                Text("ACTIVELY EXPLOITED")
                                                     .font(.system(size: 9, weight: .heavy))
                                                     .padding(.horizontal, 4).padding(.vertical, 1)
                                                     .foregroundStyle(.white).background(.red, in: Capsule())
-                                                    .help(e.kevName ?? "Nel catalogo CISA KEV")
+                                                    .help(e.kevName ?? "In the CISA KEV catalog")
                                             }
                                             if let d = e.published { Text(d).font(.caption).foregroundStyle(.tertiary) }
                                         }
@@ -195,14 +195,14 @@ struct HostDetailView: View {
                 }
             }
         } else if let error = result.cveError {
-            Label("Ricerca CVE non completata: \(error)", systemImage: "exclamationmark.triangle")
+            Label("CVE lookup not completed: \(error)", systemImage: "exclamationmark.triangle")
                 .font(.caption).foregroundStyle(.orange)
         }
     }
 
     private var hostScripts: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Script a livello host").font(.headline)
+            Text("Host-level scripts").font(.headline)
             ForEach(host.hostScripts, id: \.id) { s in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(s.id).font(.caption.bold())

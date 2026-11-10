@@ -16,15 +16,15 @@ struct NetworkPanel: View {
             Form {
                 if net.localNetworkBlocked == true {
                     Section {
-                        Label(ScanEngine.localNetworkMessage + " Fino ad allora i controlli ARP spoofing e UPnP non sono affidabili.",
+                        Label(ScanEngine.localNetworkMessage + " Until then, ARP spoofing and UPnP checks are not reliable.",
                               systemImage: "lock.trianglebadge.exclamationmark")
                             .foregroundStyle(.orange)
                     }
                 }
-                Section("Problemi di rete") {
+                Section("Network issues") {
                     let issues = result.findings.filter { Self.networkRules.contains($0.ruleID) }
                     if issues.isEmpty {
-                        Label("Nessun problema a livello di rete", systemImage: "checkmark.shield")
+                        Label("No network-level issues", systemImage: "checkmark.shield")
                             .foregroundStyle(.secondary)
                     }
                     ForEach(issues) { f in
@@ -34,48 +34,48 @@ struct NetworkPanel: View {
                     }
                 }
 
-                Section("Gateway e DHCP") {
+                Section("Gateway and DHCP") {
                     LabeledContent("Gateway") {
                         VStack(alignment: .trailing, spacing: 2) {
                             Text(join(net.gatewayIP, net.gatewayMAC))
                             if net.gatewayIP != nil, net.gatewayMAC == nil {
-                                Text("MAC non disponibile: controllo ARP spoofing saltato. Verifica il permesso «Rete locale» di SubnetScout.")
+                                Text("MAC not available: ARP spoofing check skipped. Check SubnetScout's “Local Network” permission.")
                                     .font(.caption)
                                     .foregroundStyle(.orange)
                                     .multilineTextAlignment(.trailing)
                             }
                         }
                     }
-                    LabeledContent("Interfaccia", value: join(net.interface, net.localIP))
-                    LabeledContent("Server DHCP", value: net.dhcpServer ?? "—")
-                    LabeledContent("DNS assegnati", value: net.dnsServers.isEmpty ? "—" : net.dnsServers.joined(separator: ", "))
-                    LabeledContent("DHCP non autorizzati") {
+                    LabeledContent("Interface", value: join(net.interface, net.localIP))
+                    LabeledContent("DHCP server", value: net.dhcpServer ?? "—")
+                    LabeledContent("Assigned DNS", value: net.dnsServers.isEmpty ? "—" : net.dnsServers.joined(separator: ", "))
+                    LabeledContent("Rogue DHCP servers") {
                         if net.dhcpProbed {
                             Text(net.dhcpOffers.isEmpty
-                                 ? "Nessuna risposta alla sonda, neanche dal server atteso: alcuni router non rispondono, quindi il controllo non è conclusivo"
+                                 ? "No answer to the probe, not even from the expected server: some routers do not respond, so the check is inconclusive"
                                  : net.dhcpOffers.map { "\($0.server)\($0.offeredIP.map { " → \($0)" } ?? "")" }.joined(separator: "\n"))
                         } else {
-                            Text("Non controllato: serve «Come amministratore» con profilo Standard o Completo")
+                            Text("Not checked: requires “As administrator” with the Standard or Full profile")
                                 .foregroundStyle(.secondary)
                         }
                     }
                 }
 
-                Section("Router UPnP (porte aperte verso Internet)") {
+                Section("UPnP routers (ports open to the Internet)") {
                     if let error = net.upnpError {
                         Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
                     } else if !net.upnpProbed {
-                        Text("Non controllato in questa scansione.").foregroundStyle(.secondary)
+                        Text("Not checked in this scan.").foregroundStyle(.secondary)
                     } else if net.upnpGateways.isEmpty {
-                        Label("Nessun router con UPnP attivo", systemImage: "checkmark.shield")
+                        Label("No router with UPnP enabled", systemImage: "checkmark.shield")
                             .foregroundStyle(.secondary)
                     }
                     ForEach(net.upnpGateways) { gw in
                         VStack(alignment: .leading, spacing: 6) {
                             Text("\(gw.displayName) · \(gw.ip)").bold()
                             if gw.mappings.isEmpty {
-                                Text(gw.mappingsReadable ? "UPnP attivo, nessuna porta inoltrata."
-                                                         : "UPnP attivo, tabella delle porte non leggibile.")
+                                Text(gw.mappingsReadable ? "UPnP enabled, no forwarded ports."
+                                                         : "UPnP enabled, port mapping table not readable.")
                                     .font(.callout)
                                     .foregroundStyle(.secondary)
                             }
@@ -88,7 +88,7 @@ struct NetworkPanel: View {
                                     Text("\(m.internalClient):\(m.internalPort)").font(.body.monospaced())
                                     Text(m.description).foregroundStyle(.secondary).lineLimit(1)
                                     Spacer()
-                                    if !m.enabled { Text("disattiva").font(.caption).foregroundStyle(.secondary) }
+                                    if !m.enabled { Text("disabled").font(.caption).foregroundStyle(.secondary) }
                                 }
                             }
                         }
@@ -98,9 +98,9 @@ struct NetworkPanel: View {
             }
             .formStyle(.grouped)
         } else {
-            ContentUnavailableView("Nessun dato di rete",
+            ContentUnavailableView("No network data",
                                    systemImage: "network.slash",
-                                   description: Text("Questa scansione è stata fatta con una versione precedente di SubnetScout."))
+                                   description: Text("This scan was made with an earlier version of SubnetScout."))
         }
     }
 

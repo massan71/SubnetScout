@@ -35,19 +35,19 @@ public struct ChangeSummary: Equatable, Sendable {
     public var isEmpty: Bool { newDevices == 0 && openedPorts == 0 && newIssues == 0 && newCVEServices == 0 }
 
     public var title: String {
-        if let worst, worst >= .high { return "SubnetScout: problemi di sicurezza su \(target)" }
-        return "SubnetScout: cambiamenti su \(target)"
+        if let worst, worst >= .high { return "SubnetScout: security issues on \(target)" }
+        return "SubnetScout: changes on \(target)"
     }
 
     public var body: String {
         var parts: [String] = []
         func plural(_ n: Int, _ one: String, _ many: String) -> String { "\(n) \(n == 1 ? one : many)" }
-        if newDevices > 0 { parts.append(plural(newDevices, "nuovo dispositivo", "nuovi dispositivi")) }
-        if openedPorts > 0 { parts.append(plural(openedPorts, "porta aperta", "porte aperte")) }
-        if newIssues > 0 { parts.append(plural(newIssues, "nuovo problema", "nuovi problemi")) }
-        if newCVEServices > 0 { parts.append(plural(newCVEServices, "servizio con nuove CVE", "servizi con nuove CVE")) }
+        if newDevices > 0 { parts.append(plural(newDevices, "new device", "new devices")) }
+        if openedPorts > 0 { parts.append(plural(openedPorts, "opened port", "opened ports")) }
+        if newIssues > 0 { parts.append(plural(newIssues, "new issue", "new issues")) }
+        if newCVEServices > 0 { parts.append(plural(newCVEServices, "service with new CVEs", "services with new CVEs")) }
         var text = parts.joined(separator: " · ")
-        if let worst { text += " (gravità massima: \(worst.label.lowercased()))" }
+        if let worst { text += " (highest severity: \(worst.label.lowercased()))" }
         return text
     }
 }

@@ -102,8 +102,8 @@ public actor NVDClient {
 
         public var errorDescription: String? {
             switch self {
-            case .http(let code): "NVD ha risposto con errore HTTP \(code)."
-            case .rateLimited: "NVD sta limitando le richieste: riprova tra qualche minuto o usa una chiave API."
+            case .http(let code): "NVD responded with HTTP error \(code)."
+            case .rateLimited: "NVD is rate-limiting requests: try again in a few minutes or use an API key."
             }
         }
     }
@@ -269,15 +269,15 @@ public enum CVEAudit {
                 guard let worst = entries.first, let name = names.first else { continue }
                 let kev = entries.filter(\.knownExploited)
                 let product = p.service?.productSummary.isEmpty == false ? p.service!.productSummary : CPE.label(name)
-                let maxScore = entries.compactMap(\.cvss).max().map { String(format: "%.1f", $0) } ?? "n/d"
+                let maxScore = entries.compactMap(\.cvss).max().map { String(format: "%.1f", $0) } ?? "n/a"
                 out.append(Finding(
                     ruleID: "known-cve",
                     severity: entries.map(\.subnetScoutSeverity).max() ?? worst.subnetScoutSeverity,
-                    title: "\(entries.count) \(entries.count == 1 ? "vulnerabilità nota" : "vulnerabilità note") in \(CPE.label(name))",
-                    detail: "La versione dichiarata (\(product)) è interessata da \(entries.count) CVE, CVSS massimo \(maxScore)"
-                        + (kev.isEmpty ? "." : "; \(kev.count) \(kev.count == 1 ? "sfruttata" : "sfruttate") attivamente (CISA KEV).")
-                        + " Corrispondenza basata sulla versione: i dispositivi che applicano patch senza cambiare versione possono essere falsi positivi.",
-                    remediation: "Aggiorna il software o il firmware del dispositivo all'ultima versione del produttore.",
+                    title: "\(entries.count) \(entries.count == 1 ? "known vulnerability" : "known vulnerabilities") in \(CPE.label(name))",
+                    detail: "The reported version (\(product)) is affected by \(entries.count) CVE\(entries.count == 1 ? "" : "s"), highest CVSS \(maxScore)"
+                        + (kev.isEmpty ? "." : "; \(kev.count) \(kev.count == 1 ? "is" : "are") actively exploited (CISA KEV).")
+                        + " Version-based match: devices that apply patches without changing their version may be false positives.",
+                    remediation: "Update the device software or firmware to the latest version from the vendor.",
                     hostIP: h.ip, port: p.id,
                     evidence: entries.prefix(5).map { "\($0.id)\($0.cvss.map { " (\(String(format: "%.1f", $0)))" } ?? "")\($0.knownExploited ? " KEV" : "")" }
                         .joined(separator: ", ")))

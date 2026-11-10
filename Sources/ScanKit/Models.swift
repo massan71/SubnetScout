@@ -10,10 +10,10 @@ public enum Severity: Int, Codable, CaseIterable, Comparable, Sendable {
     public var label: String {
         switch self {
         case .info: "Info"
-        case .low: "Bassa"
-        case .medium: "Media"
-        case .high: "Alta"
-        case .critical: "Critica"
+        case .low: "Low"
+        case .medium: "Medium"
+        case .high: "High"
+        case .critical: "Critical"
         }
     }
 

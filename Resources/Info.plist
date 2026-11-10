@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>it</string>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>SubnetScout</string>
 	<key>CFBundleExecutable</key>
@@ -65,7 +65,7 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>SubnetScout analizza i dispositivi della tua rete locale per individuare servizi esposti e configurazioni a rischio.</string>
+	<string>SubnetScout scans the devices on your local network to find exposed services and risky configurations.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

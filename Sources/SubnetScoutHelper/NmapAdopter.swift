@@ -13,9 +13,9 @@ enum NmapAdopter {
 
         var errorDescription: String? {
             switch self {
-            case .unauthorized: "Autorizzazione amministratore non valida o scaduta."
-            case .sourceMissing: "/Applications/nmap.app non trovato. Installa nmap dal pacchetto di nmap.org."
-            case .escapingSymlink(let p): "Link simbolico non consentito in nmap.app: \(p)"
+            case .unauthorized: "Administrator authorization invalid or expired."
+            case .sourceMissing: "/Applications/nmap.app not found. Install nmap with the package from nmap.org."
+            case .escapingSymlink(let p): "Symbolic link not allowed in nmap.app: \(p)"
             }
         }
     }

@@ -13,18 +13,18 @@ public enum ScanProfile: String, Codable, CaseIterable, Identifiable, Sendable {
     public var name: String {
         switch self {
         case .discovery: "Discovery"
-        case .quick: "Veloce"
+        case .quick: "Quick"
         case .standard: "Standard + audit"
-        case .full: "Completo + audit"
+        case .full: "Full + audit"
         }
     }
 
     public var summary: String {
         switch self {
-        case .discovery: "Solo rilevamento dei dispositivi attivi (nessuna porta)."
-        case .quick: "Top 100 porte TCP con riconoscimento rapido dei servizi."
-        case .standard: "Top 1000 porte TCP, versioni dei servizi e script di audit sicuri."
-        case .full: "Tutte le 65535 porte TCP (+ UDP principali se amministratore) e audit. Lento."
+        case .discovery: "Finds active devices only (no ports)."
+        case .quick: "Top 100 TCP ports with quick service detection."
+        case .standard: "Top 1000 TCP ports, service versions and safe audit scripts."
+        case .full: "All 65535 TCP ports (+ main UDP ports as administrator) and audit. Slow."
         }
     }
 
@@ -87,8 +87,8 @@ public enum TargetError: LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .empty: "Inserisci almeno un target (es. 192.168.1.0/24)."
-        case .invalid(let t): "Target non valido: «\(t)». Usa IP, range (10.0.0.1-50), CIDR o hostname."
+        case .empty: "Enter at least one target (e.g. 192.168.1.0/24)."
+        case .invalid(let t): "Invalid target: “\(t)”. Use an IP, a range (10.0.0.1-50), CIDR or a hostname."
         }
     }
 }

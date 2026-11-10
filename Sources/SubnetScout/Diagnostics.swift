@@ -22,44 +22,44 @@ enum Diagnostics {
         func line(_ label: String, _ value: String) { print(label.padding(toLength: 22, withPad: " ", startingAt: 0), value) }
 
         let route = NetworkInfo.defaultRoute()
-        line("Gateway / interfaccia", "\(route.gateway ?? "—") / \(route.interface ?? "—")")
+        line("Gateway / interface", "\(route.gateway ?? "—") / \(route.interface ?? "—")")
         let arp = NetworkInfo.arpTable()
-        line("Tabella ARP", "\(arp.count) voci" + (arp.isEmpty ? "  ⚠︎ vuota: permesso «Rete locale» negato?" : ""))
-        if let gw = route.gateway { line("MAC del gateway", arp[gw] ?? "—") }
+        line("ARP table", "\(arp.count) entries" + (arp.isEmpty ? "  ⚠︎ empty: “Local Network” permission denied?" : ""))
+        if let gw = route.gateway { line("Gateway MAC", arp[gw] ?? "—") }
         if let iface = route.interface, let lease = NetworkInfo.dhcpLease(interface: iface) {
-            line("Lease DHCP", "server \(lease.server ?? "—"), router \(lease.routers.joined(separator: ",")), DNS \(lease.dnsServers.joined(separator: ","))")
+            line("DHCP lease", "server \(lease.server ?? "—"), router \(lease.routers.joined(separator: ",")), DNS \(lease.dnsServers.joined(separator: ","))")
         }
 
         if HelperClient.isBundled, HelperClient.service.status == .enabled {
             do {
                 let p = try await HelperClient.networkProbe()
-                line("Sonda del helper", "\(p.arp.count) voci ARP, router UPnP: \(p.upnpGateways.map { "\($0.displayName) (\($0.ip), \($0.mappings.count) porte)" }.joined(separator: "; ").isEmpty ? "nessuno" : p.upnpGateways.map { "\($0.displayName) (\($0.ip), \($0.mappings.count) porte)" }.joined(separator: "; "))" + (p.upnpError.map { " · \($0)" } ?? ""))
+                line("Helper probe", "\(p.arp.count) ARP entries, UPnP routers: \(p.upnpGateways.map { "\($0.displayName) (\($0.ip), \($0.mappings.count) ports)" }.joined(separator: "; ").isEmpty ? "none" : p.upnpGateways.map { "\($0.displayName) (\($0.ip), \($0.mappings.count) ports)" }.joined(separator: "; "))" + (p.upnpError.map { " · \($0)" } ?? ""))
                 for (ip, d) in (p.bonjour ?? [:]).sorted(by: { (IPv4.parse($0.key) ?? 0) < (IPv4.parse($1.key) ?? 0) }) {
                     line("  Bonjour \(ip)", "\(d.bestName ?? "—") · \(d.model ?? "—") · \(d.services.prefix(3).joined(separator: ", "))")
                 }
             } catch {
-                line("Sonda del helper", "ERRORE: \(error.localizedDescription)")
+                line("Helper probe", "ERROR: \(error.localizedDescription)")
             }
         } else {
-            line("Sonda del helper", "helper non attivo")
+            line("Helper probe", "helper not active")
         }
 
         let search = UPnPInspector.ssdpSearch(extraTargets: [route.gateway].compactMap { $0 }, timeout: 3)
-        line("Risposte SSDP (IGD)", search.responses.isEmpty ? "nessuna" : search.responses.map { "\($0.key) → \($0.value)" }.joined(separator: "; "))
-        if let error = search.sendError { line("Errore invio SSDP", error) }
+        line("SSDP responses (IGD)", search.responses.isEmpty ? "none" : search.responses.map { "\($0.key) → \($0.value)" }.joined(separator: "; "))
+        if let error = search.sendError { line("SSDP send error", error) }
         for (ip, location) in search.responses.sorted(by: { $0.key < $1.key }) {
             if let url = URL(string: location) {
                 do {
                     let (data, response) = try await URLSession.shared.data(from: url)
-                    line("Descrizione \(ip)", "HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0), \(data.count) byte")
+                    line("Description \(ip)", "HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0), \(data.count) byte")
                 } catch {
-                    line("Descrizione \(ip)", "ERRORE: \(error.localizedDescription)")
+                    line("Description \(ip)", "ERROR: \(error.localizedDescription)")
                 }
             }
             if let gw = await UPnPInspector.inspect(ip: ip, location: location) {
-                line("Gateway UPnP", "\(gw.displayName): servizio \(gw.serviceType ?? "—"), tabella leggibile \(gw.mappingsReadable), porte \(gw.mappings.count)")
+                line("Gateway UPnP", "\(gw.displayName): service \(gw.serviceType ?? "—"), table readable \(gw.mappingsReadable), ports \(gw.mappings.count)")
             } else {
-                line("Gateway UPnP", "\(ip): ispezione fallita")
+                line("Gateway UPnP", "\(ip): inspection failed")
             }
         }
     }

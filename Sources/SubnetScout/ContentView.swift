@@ -17,9 +17,9 @@ struct ContentView: View {
                 } else if let result = model.current {
                     ResultsView(result: result)
                 } else {
-                    ContentUnavailableView("Nessuna scansione",
+                    ContentUnavailableView("No scans yet",
                                            systemImage: "dot.radiowaves.left.and.right",
-                                           description: Text("Scegli la subnet e premi «Avvia scansione» (⌘R)."))
+                                           description: Text("Choose the subnet and click “Start Scan” (⌘R)."))
                 }
             }
             .navigationSplitViewColumnWidth(min: 560, ideal: 760)
@@ -27,7 +27,7 @@ struct ContentView: View {
             if let host = model.selectedHost, let result = model.current {
                 HostDetailView(host: host, result: result)
             } else {
-                ContentUnavailableView("Seleziona un dispositivo", systemImage: "network")
+                ContentUnavailableView("Select a device", systemImage: "network")
             }
         }
         .toolbar { toolbar }
@@ -39,7 +39,7 @@ struct ContentView: View {
             }
             .environment(model)
         }
-        .alert("Errore", isPresented: errorBinding) {
+        .alert("Error", isPresented: errorBinding) {
             Button("OK") { model.dismissError() }
         } message: {
             if case .failed(let msg) = model.phase { Text(msg) }
@@ -55,22 +55,22 @@ struct ContentView: View {
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
             if model.isScanning {
-                Button { model.cancelScan() } label: { Label("Interrompi", systemImage: "stop.fill") }
+                Button { model.cancelScan() } label: { Label("Stop", systemImage: "stop.fill") }
             } else {
-                Button { model.startScan() } label: { Label("Avvia scansione", systemImage: "play.fill") }
+                Button { model.startScan() } label: { Label("Start Scan", systemImage: "play.fill") }
                     .disabled(model.nmapPath == nil)
             }
             Menu {
-                Button("Report HTML…") { model.export(.html) }
-                Button("CSV (host e porte)…") { model.export(.csv) }
-                Button("JSON (dati completi)…") { model.export(.json) }
+                Button("HTML Report…") { model.export(.html) }
+                Button("CSV (hosts and ports)…") { model.export(.csv) }
+                Button("JSON (full data)…") { model.export(.json) }
             } label: {
-                Label("Esporta", systemImage: "square.and.arrow.up")
+                Label("Export", systemImage: "square.and.arrow.up")
             } primaryAction: {
                 model.previewReport()
             }
             .disabled(model.current == nil)
-            .help("Clic: apri il report nel browser. Freccia: esporta su file.")
+            .help("Click: open the report in the browser. Arrow: export to a file.")
         }
     }
 }
@@ -80,10 +80,10 @@ struct MissingNmapView: View {
 
     var body: some View {
         ContentUnavailableView {
-            Label("nmap non è installato", systemImage: "exclamationmark.triangle")
+            Label("nmap is not installed", systemImage: "exclamationmark.triangle")
         } description: {
             VStack(spacing: 8) {
-                Text("SubnetScout usa nmap per le scansioni. Installalo con Homebrew:")
+                Text("SubnetScout uses nmap for scanning. Install it with Homebrew:")
                 Text("brew install nmap")
                     .font(.system(.body, design: .monospaced))
                     .textSelection(.enabled)
@@ -91,7 +91,7 @@ struct MissingNmapView: View {
                     .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
             }
         } actions: {
-            Button("Riprova") { model.refreshEnvironment() }
+            Button("Try Again") { model.refreshEnvironment() }
         }
     }
 }

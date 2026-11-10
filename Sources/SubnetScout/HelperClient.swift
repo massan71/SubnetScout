@@ -27,9 +27,9 @@ enum HelperError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .connection(let m): "Impossibile contattare il helper: \(m)"
+        case .connection(let m): "Cannot reach the helper: \(m)"
         case .remote(let m): m
-        case .versionMismatch(let v): "Versione del helper non compatibile (\(v)). Reinstalla il helper."
+        case .versionMismatch(let v): "Incompatible helper version (\(v)). Reinstall the helper."
         }
     }
 }
@@ -59,7 +59,7 @@ enum HelperClient {
                 return .error(error.localizedDescription)
             }
         @unknown default:
-            return .error("Stato del helper sconosciuto.")
+            return .error("Unknown helper status.")
         }
     }
 
@@ -119,7 +119,7 @@ enum HelperClient {
             let once = ResumeOnce(cont)
             let proxy = c.remoteObjectProxyWithErrorHandler { once.resume(throwing: HelperError.connection($0.localizedDescription)) }
             guard let helper = proxy as? ScanHelperProtocol else {
-                return once.resume(throwing: HelperError.connection("proxy non valido"))
+                return once.resume(throwing: HelperError.connection("invalid proxy"))
             }
             helper.info { version, path, problem, canAdopt in
                 once.resume(returning: Info(version: version, nmapPath: path, problem: problem, canAdopt: canAdopt))
@@ -135,7 +135,7 @@ extension HelperClient {
     /// /Applications/nmap.app in una cartella di proprietà di root.
     static func adoptNmap() async throws -> String {
         let auth = try await Task.detached(priority: .userInitiated) {
-            try AdminAuthorization(prompt: "SubnetScout vuole copiare nmap in una cartella protetta per eseguire le scansioni come amministratore senza chiedere la password.")
+            try AdminAuthorization(prompt: "SubnetScout wants to copy nmap to a protected folder so it can run administrator scans without asking for your password.")
         }.value
         defer { auth.release() }
 
@@ -145,11 +145,11 @@ extension HelperClient {
             let once = ResumeOnce(cont)
             let proxy = c.remoteObjectProxyWithErrorHandler { once.resume(throwing: HelperError.connection($0.localizedDescription)) }
             guard let helper = proxy as? ScanHelperProtocol else {
-                return once.resume(throwing: HelperError.connection("proxy non valido"))
+                return once.resume(throwing: HelperError.connection("invalid proxy"))
             }
             helper.adoptNmap(authorization: auth.externalForm) { path, error in
                 if let path { once.resume(returning: path) } else {
-                    once.resume(throwing: HelperError.remote(error ?? "Copia di nmap non riuscita."))
+                    once.resume(throwing: HelperError.remote(error ?? "Copying nmap failed."))
                 }
             }
         }
@@ -172,11 +172,11 @@ extension HelperClient {
             let once = ResumeOnce(cont)
             let proxy = c.remoteObjectProxyWithErrorHandler { once.resume(throwing: HelperError.connection($0.localizedDescription)) }
             guard let helper = proxy as? ScanHelperProtocol else {
-                return once.resume(throwing: HelperError.connection("proxy non valido"))
+                return once.resume(throwing: HelperError.connection("invalid proxy"))
             }
             helper.networkProbe { json, error in
                 if let json { once.resume(returning: json) } else {
-                    once.resume(throwing: HelperError.remote(error ?? "Sonda di rete non riuscita."))
+                    once.resume(throwing: HelperError.remote(error ?? "Network probe failed."))
                 }
             }
         } } onCancel: { box.value.invalidate() }
@@ -187,7 +187,7 @@ extension HelperClient {
 /// AuthorizationRef con il diritto admin già ottenuto (password inserita dall'utente).
 final class AdminAuthorization: @unchecked Sendable {
     struct Cancelled: LocalizedError {
-        var errorDescription: String? { "Autorizzazione annullata." }
+        var errorDescription: String? { "Authorization cancelled." }
     }
 
     private let ref: AuthorizationRef
@@ -196,7 +196,7 @@ final class AdminAuthorization: @unchecked Sendable {
     init(prompt: String) throws {
         var ref: AuthorizationRef?
         guard AuthorizationCreate(nil, nil, [], &ref) == errAuthorizationSuccess, let ref else {
-            throw HelperError.connection("AuthorizationCreate non riuscito")
+            throw HelperError.connection("AuthorizationCreate failed")
         }
         var status = errAuthorizationDenied
         let promptC = strdup(prompt)!
@@ -218,12 +218,12 @@ final class AdminAuthorization: @unchecked Sendable {
         guard status == errAuthorizationSuccess else {
             AuthorizationFree(ref, [.destroyRights])
             if status == errAuthorizationCanceled { throw Cancelled() }
-            throw HelperError.remote("Autorizzazione negata (\(status)).")
+            throw HelperError.remote("Authorization denied (\(status)).")
         }
         var ext = AuthorizationExternalForm()
         guard AuthorizationMakeExternalForm(ref, &ext) == errAuthorizationSuccess else {
             AuthorizationFree(ref, [.destroyRights])
-            throw HelperError.connection("AuthorizationMakeExternalForm non riuscito")
+            throw HelperError.connection("AuthorizationMakeExternalForm failed")
         }
         self.ref = ref
         self.externalForm = withUnsafeBytes(of: &ext) { Data($0) }
@@ -254,13 +254,13 @@ struct HelperNmapExecutor: NmapExecutor {
                         once.resume(throwing: HelperError.connection($0.localizedDescription))
                     }
                     guard let helper = proxy as? ScanHelperProtocol else {
-                        return once.resume(throwing: HelperError.connection("proxy non valido"))
+                        return once.resume(throwing: HelperError.connection("invalid proxy"))
                     }
                     helper.runScan(id: id, profile: profile.rawValue, targets: targets, fullPrivileges: fullPrivileges) { data, error in
                         if let data {
                             once.resume(returning: data)
                         } else {
-                            once.resume(throwing: HelperError.remote(error ?? "Errore sconosciuto del helper."))
+                            once.resume(throwing: HelperError.remote(error ?? "Unknown helper error."))
                         }
                     }
                 }
@@ -278,7 +278,7 @@ struct HelperNmapExecutor: NmapExecutor {
 
 struct HelperTimeout: LocalizedError {
     var errorDescription: String? {
-        "Il helper non risponde. Se hai appena aggiornato SubnetScout, premi «Reinstalla» e riapprovalo."
+        "The helper is not responding. If you just updated SubnetScout, click “Reinstall” and approve it again."
     }
 }
 

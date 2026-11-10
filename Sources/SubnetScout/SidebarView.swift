@@ -17,19 +17,19 @@ struct SidebarView: View {
                                 Button(iface.label) { model.target = iface.cidr }
                             }
                         } label: {
-                            Label("Rete locale", systemImage: "network")
+                            Label("Local network", systemImage: "network")
                         }
                     }
-                    TextField("Target", text: $model.target, prompt: Text("es. 192.168.1.0/24"))
+                    TextField("Target", text: $model.target, prompt: Text("e.g. 192.168.1.0/24"))
                         .labelsHidden()
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.body, design: .monospaced))
                         .onSubmit { model.startScan() }
                     if let current = otherNetworkHint {
                         HStack {
-                            Label("Non è la rete attuale (\(current)).", systemImage: "wifi.exclamationmark")
+                            Label("Not the current network (\(current)).", systemImage: "wifi.exclamationmark")
                                 .font(.caption).foregroundStyle(.orange)
-                            Button("Usa la rete attuale") { model.target = current }
+                            Button("Use current network") { model.target = current }
                                 .controlSize(.small)
                         }
                     }
@@ -40,8 +40,8 @@ struct SidebarView: View {
                     }
                 }
 
-                Section("Profilo") {
-                    Picker("Profilo", selection: $model.profile) {
+                Section("Profile") {
+                    Picker("Profile", selection: $model.profile) {
                         ForEach(ScanProfile.allCases) { Text($0.name).tag($0) }
                     }
                     .labelsHidden()
@@ -50,8 +50,8 @@ struct SidebarView: View {
                         .foregroundStyle(.secondary)
                     Toggle(isOn: $model.privileged.animation()) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Come amministratore")
-                            Text("Aggiunge riconoscimento del sistema operativo, UDP e sonda DHCP.")
+                            Text("As administrator")
+                            Text("Adds OS detection, UDP and the DHCP probe.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -59,8 +59,8 @@ struct SidebarView: View {
                     HelperStatusView()
                     Toggle(isOn: $cveEnabled) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Cerca vulnerabilità note (CVE)")
-                            Text("Invia a NVD solo nome e versione dei software, mai dati dei dispositivi. Opzioni in Impostazioni (⌘,).")
+                            Text("Look up known vulnerabilities (CVE)")
+                            Text("Sends only software names and versions to NVD, never device data. Options in Settings (⌘,).")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -73,22 +73,22 @@ struct SidebarView: View {
                 }
 
                 if let result = model.current {
-                    Section("Rischio") {
+                    Section("Risk") {
                         RiskSummaryView(result: result)
                     }
                 }
 
                 if model.historyLoading && model.history.isEmpty {
-                    Section("Storico") {
+                    Section("History") {
                         HStack(spacing: 8) {
                             ProgressView().controlSize(.small)
-                            Text("Caricamento dello storico cifrato… Se macOS chiede l'accesso al Portachiavi, scegli «Consenti sempre».")
+                            Text("Loading the encrypted history… If macOS asks for Keychain access, choose “Always Allow”.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
                 if !model.history.isEmpty {
-                    Section("Storico") {
+                    Section("History") {
                         if let warning = model.historyWarning {
                             Label(warning, systemImage: "lock.trianglebadge.exclamationmark")
                                 .font(.caption).foregroundStyle(.orange)
@@ -106,7 +106,7 @@ struct SidebarView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .contextMenu {
-                                    Button("Elimina", role: .destructive) { model.deleteScan(scan.id) }
+                                    Button("Delete", role: .destructive) { model.deleteScan(scan.id) }
                                 }
                             }
                         }
@@ -134,12 +134,12 @@ struct SidebarView: View {
     private var sizeWarning: String? {
         guard let targets = try? TargetParser.parse(model.target) else { return nil }
         let n = TargetParser.estimatedHostCount(targets)
-        return n > 1024 ? "\(n.formatted()) indirizzi: la scansione può richiedere molto tempo." : nil
+        return n > 1024 ? "\(n.formatted()) addresses: the scan may take a long time." : nil
     }
 
     private var footer: String {
         if let v = model.nmapVersion, let p = model.nmapPath { return "nmap \(v) · \(p)" }
-        return "nmap non trovato"
+        return "nmap not found"
     }
 }
 
@@ -153,59 +153,59 @@ struct HelperStatusView: View {
             case .checking:
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text("Controllo dell'helper…").font(.caption).foregroundStyle(.secondary)
+                    Text("Checking the helper…").font(.caption).foregroundStyle(.secondary)
                 }
             case .unavailable:
                 note("key", .secondary,
-                     "Come amministratore verrà chiesta la password. Il helper è disponibile solo avviando SubnetScout.app.")
+                     "As administrator you will be asked for your password. The helper is only available when running SubnetScout.app.")
             case .notInstalled:
-                note("key", .secondary, "Con il helper tutte le scansioni sono più complete (macOS non le limita) e non serve mai la password.")
-                Button("Installa helper…") { model.installHelper() }
+                note("key", .secondary, "With the helper every scan is more complete (macOS does not limit it) and no password is ever needed.")
+                Button("Install Helper…") { model.installHelper() }
                     .disabled(model.helperBusy)
             case .needsApproval:
                 note("hand.raised", .orange,
-                     "Approva «SubnetScout» in Impostazioni di Sistema › Generali › Elementi login ed estensioni.")
-                Text("Se risulta già approvato (succede dopo aver ricompilato l'app), premi «Reinstalla» e riapprova.")
+                     "Approve “SubnetScout” in System Settings › General › Login Items & Extensions.")
+                Text("If it already shows as approved (this happens after an update), click “Reinstall” and approve it again.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
-                    Button("Apri Impostazioni") { HelperClient.openApprovalSettings() }
-                    Button("Reinstalla") { model.installHelper() }
+                    Button("Open Settings") { HelperClient.openApprovalSettings() }
+                    Button("Reinstall") { model.installHelper() }
                         .disabled(model.helperBusy)
                 }
                 .controlSize(.small)
             case .ready(_, nil, _):
-                note("checkmark.shield.fill", .green, "Helper attivo: tutte le scansioni passano da lui, senza password.")
-                Button("Disinstalla helper") { model.uninstallHelper() }
+                note("checkmark.shield.fill", .green, "Helper active: every scan runs through it, with no password.")
+                Button("Uninstall Helper") { model.uninstallHelper() }
                     .buttonStyle(.link)
                     .font(.caption)
                     .disabled(model.helperBusy)
             case .ready(_, _, true):
                 note("shippingbox", .blue,
-                     "Trovato /Applications/nmap.app. Per eseguirlo come root senza password va copiato in una cartella protetta (una sola volta, con la password).")
-                Button("Copia nmap in posizione protetta…") { model.adoptNmap() }
+                     "Found /Applications/nmap.app. To run it as root without a password it must be copied to a protected folder (once, with your password).")
+                Button("Copy nmap to Protected Location…") { model.adoptNmap() }
                     .disabled(model.helperBusy)
-                Text("Fino ad allora la password viene chiesta a ogni scansione.")
+                Text("Until then, your password is requested for every scan.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             case .ready(_, let problem?, false):
-                note("exclamationmark.shield", .orange, "Helper attivo, ma non userà questo nmap come root:")
+                note("exclamationmark.shield", .orange, "Helper active, but it will not run this nmap as root:")
                 Text(problem)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("Installa nmap dal pacchetto di nmap.org. Fino ad allora verrà chiesta la password.")
+                Text("Install nmap with the package from nmap.org. Until then, your password will be requested.")
                     .font(.caption)
                 HStack {
-                    Button("Ricontrolla") { Task { await model.refreshHelper() } }
-                    Button("Disinstalla") { model.uninstallHelper() }
+                    Button("Check Again") { Task { await model.refreshHelper() } }
+                    Button("Uninstall") { model.uninstallHelper() }
                         .disabled(model.helperBusy)
                 }
                 .controlSize(.small)
             case .error(let message):
                 note("xmark.octagon", .red, message)
                 HStack {
-                    Button("Reinstalla") { model.installHelper() }
-                    Button("Ricontrolla") { Task { await model.refreshHelper() } }
+                    Button("Reinstall") { model.installHelper() }
+                    Button("Check Again") { Task { await model.refreshHelper() } }
                 }
                 .controlSize(.small)
             }
@@ -231,30 +231,30 @@ struct ScanButton: View {
             VStack(alignment: .leading, spacing: 6) {
                 if let progress {
                     ProgressView(value: progress) {
-                        Text("Scansione in corso… \(Int(progress * 100))%")
+                        Text("Scanning… \(Int(progress * 100))%")
                             .font(.callout)
                     }
                 } else {
-                    ProgressView { Text("Scansione in corso (password)…").font(.callout) }
+                    ProgressView { Text("Scanning (password)…").font(.callout) }
                         .progressViewStyle(.linear)
                 }
                 // nmap azzera la percentuale a ogni fase (ping, porte, servizi, script):
                 // il tempo trascorso rassicura che la scansione sta andando avanti.
                 if let start = model.scanStartedAt {
                     TimelineView(.periodic(from: start, by: 1)) { context in
-                        Text("In corso da \(Duration.seconds(Int(context.date.timeIntervalSince(start))).formatted(.time(pattern: .minuteSecond))) · \(model.scanStage.isEmpty ? model.scanSummary : model.scanStage)")
+                        Text("Running for \(Duration.seconds(Int(context.date.timeIntervalSince(start))).formatted(.time(pattern: .minuteSecond))) · \(model.scanStage.isEmpty ? model.scanSummary : model.scanStage)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
                 }
-                Button("Interrompi", role: .cancel) { model.cancelScan() }
+                Button("Stop", role: .cancel) { model.cancelScan() }
             }
         } else {
             Button {
                 model.startScan()
             } label: {
-                Label("Avvia scansione", systemImage: "dot.radiowaves.left.and.right")
+                Label("Start Scan", systemImage: "dot.radiowaves.left.and.right")
                     .frame(maxWidth: .infinity)
             }
             .controlSize(.large)
@@ -291,11 +291,11 @@ struct RiskSummaryView: View {
             VStack(alignment: .leading, spacing: 4) {
                 if !result.profile.scansPorts {
                     // La Discovery non analizza servizi: un voto «A» sarebbe fuorviante.
-                    Text("Audit non eseguito").font(.headline)
-                    Text("La Discovery trova solo i dispositivi: per il voto usa Veloce o Standard.")
+                    Text("No audit run").font(.headline)
+                    Text("Discovery only finds devices: use Quick or Standard for a grade.")
                         .font(.caption).foregroundStyle(.secondary)
                 } else {
-                Text("Punteggio \(risk.score)/100")
+                Text("Score \(risk.score)/100")
                     .font(.headline)
                 HStack(spacing: 6) {
                     ForEach(Severity.allCases.reversed(), id: \.self) { sev in
@@ -304,7 +304,7 @@ struct RiskSummaryView: View {
                         }
                     }
                     if risk.counts.isEmpty {
-                        Text("Nessun problema").font(.caption).foregroundStyle(.secondary)
+                        Text("No issues").font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 }

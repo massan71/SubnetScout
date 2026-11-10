@@ -12,9 +12,9 @@ public enum NetworkAudit {
            let prev = previous?.network, prev.gatewayIP == gw, let oldMAC = prev.gatewayMAC, oldMAC != mac {
             f.append(Finding(
                 ruleID: "gateway-mac-changed", severity: .high,
-                title: "Il MAC del gateway è cambiato",
-                detail: "\(gw) rispondeva con \(oldMAC), ora con \(mac). Se non hai sostituito il router, qualcuno potrebbe intercettare il traffico (ARP spoofing).",
-                remediation: "Verifica il MAC sull'etichetta o nel pannello del router. Se non torna, scollega i dispositivi sconosciuti e controlla la tabella ARP.",
+                title: "The gateway MAC address has changed",
+                detail: "\(gw) used to answer with \(oldMAC), now with \(mac). If you have not replaced the router, someone may be intercepting traffic (ARP spoofing).",
+                remediation: "Check the MAC on the router label or admin page. If it does not match, disconnect unknown devices and check the ARP table.",
                 hostIP: gw, evidence: "\(oldMAC) → \(mac)"))
         }
 
@@ -24,9 +24,9 @@ public enum NetworkAudit {
             for h in impostors {
                 f.append(Finding(
                     ruleID: "gateway-mac-shared", severity: .high,
-                    title: "Un dispositivo usa lo stesso MAC del gateway",
-                    detail: "\(h.ip) e il gateway \(gw) rispondono entrambi con \(mac). È il segno tipico di un attacco ARP spoofing, oppure di un router con più indirizzi sulla stessa rete.",
-                    remediation: "Identifica il dispositivo \(h.ip). Se non è il router stesso, scollegalo dalla rete.",
+                    title: "A device uses the same MAC as the gateway",
+                    detail: "\(h.ip) and the gateway \(gw) both answer with \(mac). This is the typical sign of an ARP spoofing attack, or of a router with several addresses on the same network.",
+                    remediation: "Identify device \(h.ip). If it is not the router itself, disconnect it from the network.",
                     hostIP: h.ip, evidence: mac))
             }
         }
@@ -35,13 +35,13 @@ public enum NetworkAudit {
         let expected = Set([context.dhcpServer, gatewayIP].compactMap { $0 })
         var reported = Set<String>()
         for offer in context.dhcpOffers where !expected.contains(offer.server) && reported.insert(offer.server).inserted {
-            let gwInfo = offer.routers.isEmpty ? "" : " Propone come gateway \(offer.routers.joined(separator: ", "))"
-            let dnsInfo = offer.dnsServers.isEmpty ? "" : " e come DNS \(offer.dnsServers.joined(separator: ", "))."
+            let gwInfo = offer.routers.isEmpty ? "" : " It offers \(offer.routers.joined(separator: ", ")) as gateway"
+            let dnsInfo = offer.dnsServers.isEmpty ? "" : " and \(offer.dnsServers.joined(separator: ", ")) as DNS."
             f.append(Finding(
                 ruleID: "dhcp-rogue", severity: .high,
-                title: "Server DHCP non autorizzato",
-                detail: "\(offer.server) risponde alle richieste DHCP, ma l'indirizzo di questo Mac viene da \(expected.sorted().joined(separator: "/")).\(gwInfo)\(dnsInfo) Un DHCP estraneo può dirottare gateway e DNS dei dispositivi.",
-                remediation: "Individua il dispositivo \(offer.server) (spesso un secondo router o un hotspot) e disattivane il DHCP.",
+                title: "Rogue DHCP server",
+                detail: "\(offer.server) answers DHCP requests, but this Mac got its address from \(expected.sorted().joined(separator: "/")).\(gwInfo)\(dnsInfo) A rogue DHCP server can hijack the gateway and DNS of your devices.",
+                remediation: "Find device \(offer.server) (often a second router or a hotspot) and turn off its DHCP server.",
                 hostIP: offer.server))
         }
         // Il server atteso offre gateway o DNS diversi da quelli ricevuti
@@ -50,9 +50,9 @@ public enum NetworkAudit {
             if !context.dhcpRouters.isEmpty, !oddRouters.isEmpty {
                 f.append(Finding(
                     ruleID: "dhcp-router-mismatch", severity: .medium,
-                    title: "Il DHCP offre un gateway diverso",
-                    detail: "\(offer.server) ora propone \(oddRouters.sorted().joined(separator: ", ")) come gateway invece di \(context.dhcpRouters.joined(separator: ", ")).",
-                    remediation: "Controlla la configurazione DHCP del router.",
+                    title: "DHCP offers a different gateway",
+                    detail: "\(offer.server) now offers \(oddRouters.sorted().joined(separator: ", ")) as gateway instead of \(context.dhcpRouters.joined(separator: ", ")).",
+                    remediation: "Check the DHCP configuration of the router.",
                     hostIP: offer.server))
             }
         }
@@ -64,16 +64,16 @@ public enum NetworkAudit {
             if let local = localNet, v >> 8 == local >> 8 || IPv4.isPrivate(v) {
                 f.append(Finding(
                     ruleID: "dns-lan-host", severity: .low,
-                    title: "DNS fornito da un altro dispositivo della LAN",
-                    detail: "Il DHCP indica \(dns) come DNS, che non è il gateway. È normale con Pi-hole o AdGuard; altrimenti quel dispositivo vede (e può falsificare) tutte le risoluzioni.",
-                    remediation: "Se non usi un DNS locale, imposta nel router il DNS del router o del provider.",
+                    title: "DNS provided by another device on the LAN",
+                    detail: "DHCP hands out \(dns) as DNS, which is not the gateway. This is normal with Pi-hole or AdGuard; otherwise that device sees (and can forge) every lookup.",
+                    remediation: "If you do not use a local DNS, set the router or ISP DNS in the router.",
                     hostIP: dns))
             } else if !IPv4.isWellKnownResolver(dns) {
                 f.append(Finding(
                     ruleID: "dns-unknown", severity: .low,
-                    title: "DNS esterno non riconosciuto",
-                    detail: "Il DHCP indica \(dns) come DNS: non è un resolver pubblico noto né un indirizzo della LAN.",
-                    remediation: "Verifica che sia il DNS del tuo provider; in caso di dubbio usa il DNS del router o un resolver noto.",
+                    title: "Unrecognized external DNS",
+                    detail: "DHCP hands out \(dns) as DNS: it is neither a well-known public resolver nor a LAN address.",
+                    remediation: "Check that it is your ISP DNS; if in doubt, use the router DNS or a well-known resolver.",
                     hostIP: gatewayIP ?? dns))
             }
         }
@@ -84,24 +84,24 @@ public enum NetworkAudit {
             if active.isEmpty {
                 f.append(Finding(
                     ruleID: "upnp-igd", severity: .medium,
-                    title: "UPnP attivo sul router \(gw.displayName)",
+                    title: "UPnP enabled on router \(gw.displayName)",
                     detail: gw.mappingsReadable
-                        ? "Nessuna porta è aperta ora, ma qualsiasi dispositivo della LAN (anche uno compromesso) può aprirne verso Internet senza chiedere."
-                        : "Il router accetta richieste UPnP: i dispositivi della LAN possono aprire porte verso Internet senza chiedere.",
-                    remediation: "Disattiva UPnP nel router e apri a mano solo le porte necessarie.",
+                        ? "No ports are open right now, but any device on the LAN (even a compromised one) can open them to the Internet without asking."
+                        : "The router accepts UPnP requests: devices on the LAN can open ports to the Internet without asking.",
+                    remediation: "Turn off UPnP on the router and open only the ports you need manually.",
                     hostIP: gw.ip))
             }
             for m in active {
                 let who = hosts.first { $0.ip == m.internalClient }?.displayName ?? m.internalClient
-                let label = m.description.isEmpty ? "" : " («\(m.description)»)"
+                let label = m.description.isEmpty ? "" : " (“\(m.description)”)"
                 let anyone = m.remoteHost.isEmpty || m.remoteHost == "0.0.0.0"
                 f.append(Finding(
                     ruleID: "upnp-port-mapping", severity: anyone ? .high : .medium,
-                    title: "Porta \(m.proto) \(m.externalPort) esposta su Internet",
-                    detail: "\(gw.displayName) inoltra la porta \(m.externalPort)/\(m.proto.lowercased()) a \(who):\(m.internalPort)\(label)"
-                        + (anyone ? ", raggiungibile da chiunque." : ", solo da \(m.remoteHost).")
-                        + (m.leaseSeconds == 0 ? " La regola è permanente." : ""),
-                    remediation: "Se non serve, rimuovi la regola dal router e disattiva UPnP. Se serve, verifica che \(who) sia aggiornato.",
+                    title: "\(m.proto) port \(m.externalPort) exposed to the Internet",
+                    detail: "\(gw.displayName) forwards port \(m.externalPort)/\(m.proto.lowercased()) to \(who):\(m.internalPort)\(label)"
+                        + (anyone ? ", reachable by anyone." : ", only from \(m.remoteHost).")
+                        + (m.leaseSeconds == 0 ? " The rule is permanent." : ""),
+                    remediation: "If it is not needed, remove the rule from the router and turn off UPnP. If it is, make sure \(who) is up to date.",
                     hostIP: m.internalClient, port: "\(m.internalPort)/\(m.proto.lowercased())",
                     evidence: "\(gw.ip):\(m.externalPort) → \(m.internalClient):\(m.internalPort)"))
             }
@@ -116,9 +116,9 @@ public enum NetworkAudit {
             if !mgmt.isEmpty {
                 f.append(Finding(
                     ruleID: "router-management", severity: .low,
-                    title: "Gestione remota del router accessibile",
-                    detail: "Il router \(h.displayName) espone servizi di amministrazione alla LAN: \(mgmt.map { "\($0.serviceName.isEmpty ? "?" : $0.serviceName) (\($0.id))" }.joined(separator: ", ")).",
-                    remediation: "Limita SSH/Telnet/SNMP del router a un solo PC o a una rete di gestione, oppure disattivali.",
+                    title: "Router remote management reachable",
+                    detail: "Router \(h.displayName) exposes management services to the LAN: \(mgmt.map { "\($0.serviceName.isEmpty ? "?" : $0.serviceName) (\($0.id))" }.joined(separator: ", ")).",
+                    remediation: "Restrict the router SSH/Telnet/SNMP to a single PC or a management network, or turn them off.",
                     hostIP: h.ip))
             }
         }
