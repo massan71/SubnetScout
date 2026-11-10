@@ -44,6 +44,17 @@ public enum DeviceKind: String, Codable, Sendable, CaseIterable {
 extension Host {
     public var kind: DeviceKind {
         if isGateway { return .router }
+        // I servizi Bonjour sono il segnale più affidabile: li annuncia il dispositivo stesso.
+        let bj = Set(bonjourServices ?? [])
+        let m = (model ?? "").lowercased()
+        if !bj.isDisjoint(with: ["_ipp._tcp", "_ipps._tcp", "_printer._tcp", "_pdl-datastream._tcp", "_uscan._tcp"]) { return .printer }
+        if m.hasPrefix("iphone") || m.hasPrefix("ipad") { return .phone }
+        if m.hasPrefix("mac") || m.hasPrefix("imac") { return .mac }
+        if m.contains("appletv") || m.contains("tv") || bj.contains("_googlecast._tcp") || bj.contains("_androidtvremote2._tcp") { return .tv }
+        if bj.contains("_sonos._tcp") || bj.contains("_spotify-connect._tcp") && !bj.contains("_googlecast._tcp") { return .speaker }
+        if !bj.isDisjoint(with: ["_hap._tcp", "_homekit._tcp", "_matter._tcp", "_matterc._udp", "_shelly._tcp",
+                                  "_esphomelib._tcp", "_hue._tcp", "_home-assistant._tcp"]) { return .iot }
+        if bj.contains("_adisk._tcp") || bj.contains("_afpovertcp._tcp") && !bj.contains("_companion-link._tcp") { return .nas }
         let v = (vendor ?? "").lowercased()
         let h = hostnames.joined(separator: " ").lowercased()
         let os = (bestOSGuess?.name ?? "").lowercased()

@@ -80,7 +80,7 @@ resta: per rimuoverla `sudo rm -rf "/Library/Application Support/SubnetScout"`.
 
 | Area | Cosa fa |
 |---|---|
-| **Discovery** | Rileva da solo interfaccia e subnet, ARP/ping sweep, MAC dalla tabella ARP anche senza root, produttore dal database OUI di nmap, riconosce i MAC randomizzati, il gateway e il tipo di dispositivo |
+| **Discovery** | Nomi e modelli da Bonjour/mDNS (stampanti, speaker, TV, dispositivi smart). Rileva da solo interfaccia e subnet, ARP/ping sweep, MAC dalla tabella ARP anche senza root, produttore dal database OUI di nmap, riconosce i MAC randomizzati, il gateway e il tipo di dispositivo |
 | **Profili** | Discovery · Veloce (top 100) · Standard + audit (top 1000 + script) · Completo (65535 TCP + UDP principali) |
 | **Amministratore** | SYN scan, OS detection, UDP, MAC: password richiesta con la finestra standard di macOS |
 | **Audit** | ~35 regole: Telnet, FTP anonimo, SMBv1, firma SMB, TLS obsoleto o debole, DH deboli, certificati scaduti o self-signed, HTTPS senza HSTS, metodi HTTP rischiosi, RDP senza NLA, VNC senza password, DB esposti, API Docker, SNMP `public`, chiavi SSH deboli… |
@@ -114,7 +114,7 @@ Tests/ScanKitTests/       Swift Testing con fixture XML + scan reale di localhos
 ## Roadmap
 
 - [x] Privileged helper (`SMAppService` + XPC) con avanzamento e annullamento
-- [ ] Discovery Bonjour/mDNS con `Network.framework` per nomi più leggibili (AirPlay, stampanti, HomeKit)
+- [x] Nomi e modelli da Bonjour/mDNS
 - [x] Correlazione delle CVE dalle versioni dei servizi (API NVD, facoltativa)
 - [ ] Export PDF nativo (WKWebView + NSPrintOperation)
 - [x] Scansioni programmate e notifiche sui cambiamenti

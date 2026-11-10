@@ -85,7 +85,7 @@ struct ResultsView: View {
 
     private func matches(_ h: Host) -> Bool {
         guard !search.isEmpty else { return true }
-        let haystack = ([h.ip, h.mac ?? "", h.vendor ?? "", h.kind.label] + h.hostnames
+        let haystack = ([h.ip, h.mac ?? "", h.vendor ?? "", h.kind.label, h.bonjourName ?? "", h.model ?? ""] + h.hostnames
                         + h.openPorts.flatMap { [String($0.number), $0.serviceName, $0.service?.productSummary ?? ""] })
             .joined(separator: " ").lowercased()
         return haystack.contains(search.lowercased())

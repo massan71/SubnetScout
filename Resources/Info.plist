@@ -26,11 +26,41 @@
 	<string>14.0</string>
 	<key>NSBonjourServices</key>
 	<array>
+		<string>_device-info._tcp</string>
 		<string>_http._tcp</string>
-		<string>_ssh._tcp</string>
-		<string>_smb._tcp</string>
+		<string>_https._tcp</string>
 		<string>_ipp._tcp</string>
+		<string>_ipps._tcp</string>
+		<string>_printer._tcp</string>
+		<string>_pdl-datastream._tcp</string>
+		<string>_uscan._tcp</string>
+		<string>_scanner._tcp</string>
 		<string>_airplay._tcp</string>
+		<string>_raop._tcp</string>
+		<string>_companion-link._tcp</string>
+		<string>_googlecast._tcp</string>
+		<string>_spotify-connect._tcp</string>
+		<string>_sonos._tcp</string>
+		<string>_smb._tcp</string>
+		<string>_afpovertcp._tcp</string>
+		<string>_adisk._tcp</string>
+		<string>_ssh._tcp</string>
+		<string>_sftp-ssh._tcp</string>
+		<string>_rfb._tcp</string>
+		<string>_workstation._tcp</string>
+		<string>_hap._tcp</string>
+		<string>_homekit._tcp</string>
+		<string>_matter._tcp</string>
+		<string>_matterc._udp</string>
+		<string>_shelly._tcp</string>
+		<string>_home-assistant._tcp</string>
+		<string>_esphomelib._tcp</string>
+		<string>_mqtt._tcp</string>
+		<string>_hue._tcp</string>
+		<string>_amzn-wplay._tcp</string>
+		<string>_androidtvremote2._tcp</string>
+		<string>_daap._tcp</string>
+		<string>_touch-able._tcp</string>
 	</array>
 	<key>NSHighResolutionCapable</key>
 	<true/>

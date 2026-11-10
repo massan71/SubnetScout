@@ -9,6 +9,8 @@ public struct NetworkProbe: Codable, Sendable, Equatable {
     public var arp: [String: String]
     public var upnpGateways: [UPnPGateway]
     public var upnpError: String?
+    /// Dispositivi annunciati via Bonjour/mDNS, per IP. nil nei helper precedenti alla 0.5.0.
+    public var bonjour: [String: BonjourDevice]?
     /// "helper" o "app": chi ha eseguito la sonda.
     public var source: String
 
@@ -27,16 +29,20 @@ public struct NetworkProbe: Codable, Sendable, Equatable {
         let arp = NetworkInfo.arpTable()
         let gateway = NetworkInfo.defaultGateway()
         var probe = NetworkProbe(arp: arp, upnpGateways: [], upnpError: nil, source: source)
+        // Bonjour in parallelo con UPnP (attende qualche secondo le risposte).
+        let bonjourTask = Task.detached { BonjourScanner.discover(timeout: 4) }
         if arp.isEmpty, gateway != nil {
             probe.upnpError = ScanEngine.localNetworkMessage
             return probe
         }
-        guard inspectUPnP else { return probe }
-        do {
-            probe.upnpGateways = try await UPnPInspector.discover(extraTargets: [gateway].compactMap { $0 })
-        } catch {
-            probe.upnpError = error.localizedDescription
+        if inspectUPnP {
+            do {
+                probe.upnpGateways = try await UPnPInspector.discover(extraTargets: [gateway].compactMap { $0 })
+            } catch {
+                probe.upnpError = error.localizedDescription
+            }
         }
+        probe.bonjour = await bonjourTask.value
         return probe
     }
 }

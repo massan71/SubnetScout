@@ -36,7 +36,7 @@ public struct ScanEngine: Sendable {
         let xml = try await executor.execute(profile: profile, targets: targets, onProgress: onProgress)
         let run = try NmapXMLParser.parse(xml)
         let probe = await (probe ?? { await NetworkProbe.run(source: "app", inspectUPnP: inspectUPnP) })()
-        let hosts = enrich(run.hosts, arp: probe.arp)
+        let hosts = enrich(run.hosts, arp: probe.arp, bonjour: probe.bonjour ?? [:])
         var context = networkContext(hosts: hosts, runScripts: run.runScripts, nmapArgs: run.args ?? "", arp: probe.arp)
         context.upnpGateways = probe.upnpGateways
         context.upnpError = probe.upnpError
@@ -106,12 +106,18 @@ public struct ScanEngine: Sendable {
         }
     }
 
-    public func enrich(_ hosts: [Host], arp: [String: String]? = nil) -> [Host] {
+    public func enrich(_ hosts: [Host], arp: [String: String]? = nil, bonjour: [String: BonjourDevice] = [:]) -> [Host] {
         let arp = arp ?? NetworkInfo.arpTable()
         let gateway = NetworkInfo.defaultGateway()
         let localIPs = Set(NetworkInfo.interfaces().map(\.ip))
         return hosts.map { h in
             var h = h
+            // Questo Mac si annuncia su 127.0.0.1: lo si abbina al suo indirizzo reale.
+            if let b = bonjour[h.ip] ?? (localIPs.contains(h.ip) ? bonjour["127.0.0.1"] : nil) {
+                h.bonjourName = b.bestName
+                h.model = b.model
+                h.bonjourServices = b.services
+            }
             if h.mac == nil { h.mac = arp[h.ip] }
             if h.vendor == nil || h.vendor?.isEmpty == true, let mac = h.mac { h.vendor = vendors.vendor(for: mac) }
             h.isGateway = h.ip == gateway

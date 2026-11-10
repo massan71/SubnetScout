@@ -63,6 +63,7 @@ struct NewBadge: View {
             .padding(.vertical, 1)
             .foregroundStyle(.orange)
             .overlay(Capsule().stroke(.orange, lineWidth: 1))
+            .fixedSize()   // si accorcia il nome del dispositivo, mai il badge
             .help("Dispositivo non ancora segnato come noto")
     }
 }

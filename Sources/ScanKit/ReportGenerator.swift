@@ -113,7 +113,7 @@ public enum ReportGenerator {
             body += """
             <tr><td>\(esc(h.displayName))\(isNew ? " <span class=\"tag new\">nuovo</span>" : "")\(h.isGateway ? " <span class=\"tag\">gateway</span>" : "")</td>
             <td><code>\(esc(h.ip))</code></td><td><code>\(esc(h.mac ?? "—"))</code></td>
-            <td>\(esc(h.vendor ?? "—"))</td><td>\(esc(h.kind.label))</td>
+            <td>\(esc(h.vendor ?? "—"))</td><td>\(esc(h.kind.label))\(h.model.map { "<br><span class=\"muted\">" + esc($0) + "</span>" } ?? "")</td>
             <td class="ports">\(esc(portsStr.isEmpty ? "nessuna" : portsStr))</td><td>\(risk.score(for: h))</td></tr>
             """
         }

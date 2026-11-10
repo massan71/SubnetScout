@@ -123,10 +123,18 @@ public struct Host: Codable, Hashable, Sendable, Identifiable {
     public var latencyMs: Double?
     public var isGateway: Bool
     public var isLocalMachine: Bool
+    /// Nome annunciato via Bonjour (es. «HP LaserJet MFP M140w»), modello e servizi.
+    public var bonjourName: String?
+    public var model: String?
+    public var bonjourServices: [String]?
 
     public init(ip: String, mac: String? = nil, vendor: String? = nil, hostnames: [String] = [],
                 ports: [PortInfo] = [], hostScripts: [ScriptOutput] = [], osGuesses: [OSGuess] = [],
-                latencyMs: Double? = nil, isGateway: Bool = false, isLocalMachine: Bool = false) {
+                latencyMs: Double? = nil, isGateway: Bool = false, isLocalMachine: Bool = false,
+                bonjourName: String? = nil, model: String? = nil, bonjourServices: [String]? = nil) {
+        self.bonjourName = bonjourName
+        self.model = model
+        self.bonjourServices = bonjourServices
         self.ip = ip
         self.mac = mac
         self.vendor = vendor
@@ -141,7 +149,7 @@ public struct Host: Codable, Hashable, Sendable, Identifiable {
 
     public var id: String { ip }
     public var openPorts: [PortInfo] { ports.filter(\.isOpen) }
-    public var displayName: String { hostnames.first ?? ip }
+    public var displayName: String { bonjourName ?? hostnames.first ?? ip }
     public var bestOSGuess: OSGuess? { osGuesses.max { $0.accuracy < $1.accuracy } }
 
     /// Chiave stabile per riconoscere un dispositivo tra scansioni (il MAC se c'è, altrimenti l'IP).

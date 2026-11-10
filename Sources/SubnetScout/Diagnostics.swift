@@ -34,6 +34,9 @@ enum Diagnostics {
             do {
                 let p = try await HelperClient.networkProbe()
                 line("Sonda del helper", "\(p.arp.count) voci ARP, router UPnP: \(p.upnpGateways.map { "\($0.displayName) (\($0.ip), \($0.mappings.count) porte)" }.joined(separator: "; ").isEmpty ? "nessuno" : p.upnpGateways.map { "\($0.displayName) (\($0.ip), \($0.mappings.count) porte)" }.joined(separator: "; "))" + (p.upnpError.map { " · \($0)" } ?? ""))
+                for (ip, d) in (p.bonjour ?? [:]).sorted(by: { (IPv4.parse($0.key) ?? 0) < (IPv4.parse($1.key) ?? 0) }) {
+                    line("  Bonjour \(ip)", "\(d.bestName ?? "—") · \(d.model ?? "—") · \(d.services.prefix(3).joined(separator: ", "))")
+                }
             } catch {
                 line("Sonda del helper", "ERRORE: \(error.localizedDescription)")
             }

@@ -54,6 +54,8 @@ struct HostDetailView: View {
             row("IP", host.ip, mono: true)
             row("MAC", host.mac ?? "— (serve modalità amministratore o voce ARP)", mono: host.mac != nil)
             row("Produttore", host.vendor ?? "—")
+            if let m = host.model { row("Modello", m) }
+            if let s = host.bonjourServices, !s.isEmpty { row("Servizi Bonjour", s.joined(separator: ", ")) }
             if host.hostnames.count > 0 { row("Hostname", host.hostnames.joined(separator: ", ")) }
             if let os = host.bestOSGuess { row("Sistema", "\(os.name) (\(os.accuracy)%)") }
             if let ms = host.latencyMs { row("Latenza", String(format: "%.1f ms", ms)) }
