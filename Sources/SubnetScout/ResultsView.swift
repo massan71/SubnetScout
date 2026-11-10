@@ -6,7 +6,6 @@ struct ResultsView: View {
     let result: ScanResult
 
     enum Mode: String, CaseIterable { case devices = "Dispositivi", findings = "Problemi", network = "Rete" }
-    @State private var mode: Mode = .devices
     @State private var search = ""
     @State private var onlyIssues = false
     @State private var sortOrder = [KeyPathComparator(\HostRow.ipKey)]
@@ -17,21 +16,39 @@ struct ResultsView: View {
             if let diff = model.diff, !diff.isEmpty {
                 DiffBanner(diff: diff)
             }
+            if result.hosts.count > 3,
+               result.hosts.filter({ !model.isTrusted($0) }).count * 5 >= result.hosts.count * 4 {
+                // Quasi tutto è «NUOVO»: spiega a cosa serve e offri la scorciatoia.
+                HStack(spacing: 10) {
+                    Image(systemName: "lightbulb").foregroundStyle(.yellow)
+                    Text("Segna come noti i dispositivi che riconosci: da quel momento «NUOVO» e le notifiche riguarderanno solo quelli davvero nuovi.")
+                        .font(.callout)
+                        .lineLimit(2)
+                    Spacer()
+                    Button("Segna tutti come noti") { model.trustAll() }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.yellow.opacity(0.08))
+            }
             Divider()
-            switch mode {
+            switch model.resultsMode {
             case .devices: hostTable
             case .findings: findingsList
             case .network: NetworkPanel(result: result)
             }
         }
+        // In caso di contenuto troppo alto si taglia il fondo (la tabella scorre), mai l'intestazione.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .searchable(text: $search, placement: .toolbar, prompt: "Cerca IP, nome, produttore, servizio")
         .navigationTitle(result.target)
         .navigationSubtitle("\(result.hosts.count) dispositivi · \(result.finishedAt.formatted(date: .abbreviated, time: .shortened))")
     }
 
     private var header: some View {
-        HStack {
-            Picker("Vista", selection: $mode) {
+        @Bindable var model = model
+        return HStack {
+            Picker("Vista", selection: $model.resultsMode) {
                 ForEach(Mode.allCases, id: \.self) { m in
                     Text(m == .findings ? "\(m.rawValue) (\(result.findings.count))" : m.rawValue).tag(m)
                 }
@@ -40,7 +57,7 @@ struct ResultsView: View {
             .labelsHidden()
             .fixedSize()
             Spacer()
-            if mode == .devices {
+            if model.resultsMode == .devices {
                 Toggle("Solo con problemi", isOn: $onlyIssues)
                     .toggleStyle(.checkbox)
             }
@@ -91,22 +108,22 @@ struct ResultsView: View {
                     }
                 }
             }
-            .width(min: 160, ideal: 210)
+            .width(min: 150, ideal: 180)
             TableColumn("IP", value: \.ipKey) { row in
                 Text(row.host.ip).font(.system(.body, design: .monospaced))
             }
-            .width(min: 95, ideal: 110)
+            .width(min: 90, ideal: 96)
             TableColumn("Produttore", value: \.vendor) { row in
                 Text(row.vendor.isEmpty ? "—" : row.vendor)
                     .lineLimit(1)
                     .foregroundStyle(row.vendor.isEmpty ? .tertiary : .primary)
             }
-            .width(min: 90, ideal: 140)
+            .width(min: 70, ideal: 120)
             TableColumn("Porte", value: \.openCount) { row in
                 Text(result.profile.scansPorts ? "\(row.openCount)" : "—")
                     .monospacedDigit()
             }
-            .width(50)
+            .width(44)
             TableColumn("Rischio", value: \.score) { row in
                 if let worst = row.worst, worst > .info {
                     SeverityPill(severity: worst, text: "\(row.score)")
@@ -114,7 +131,7 @@ struct ResultsView: View {
                     Text("OK").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .width(64)
+            .width(min: 66, ideal: 70)
         }
         .contextMenu(forSelectionType: Host.ID.self) { ids in
             if let id = ids.first, let host = result.hosts.first(where: { $0.id == id }) {
@@ -184,11 +201,11 @@ struct DiffBanner: View {
                 .foregroundStyle(.blue)
             Text("Rispetto al \(diff.previousScanDate.formatted(date: .abbreviated, time: .shortened)):")
                 .foregroundStyle(.secondary)
-            item(diff.newHosts.count, "nuovi dispositivi", .orange)
-            item(diff.goneHosts.count, "spariti", .secondary)
-            item(diff.openedPorts.count, "porte aperte", .orange)
-            item(diff.closedPorts.count, "porte chiuse", .green)
-            item(diff.newFindings.count, "nuovi problemi", .red)
+            item(diff.newHosts.count, "nuovo dispositivo", "nuovi dispositivi", .orange)
+            item(diff.goneHosts.count, "sparito", "spariti", .secondary)
+            item(diff.openedPorts.count, "porta aperta", "porte aperte", .orange)
+            item(diff.closedPorts.count, "porta chiusa", "porte chiuse", .green)
+            item(diff.newFindings.count, "nuovo problema", "nuovi problemi", .red)
             Spacer()
         }
         .font(.callout)
@@ -198,11 +215,12 @@ struct DiffBanner: View {
     }
 
     @ViewBuilder
-    private func item(_ n: Int, _ label: String, _ color: Color) -> some View {
+    private func item(_ n: Int, _ one: String, _ many: String, _ color: Color) -> some View {
         if n > 0 {
-            Text("\(n) \(label)").foregroundStyle(color).bold()
+            Text("\(n) \(n == 1 ? one : many)").foregroundStyle(color).bold()
         }
     }
+
 }
 
 struct FindingRow: View {

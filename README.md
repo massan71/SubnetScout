@@ -71,6 +71,10 @@ resta: per rimuoverla `sudo rm -rf "/Library/Application Support/SubnetScout"`.
 - **Una sola copia installata**: tieni l'app solo in `/Applications`. Due copie con lo stesso bundle ID confondono
   i permessi di macOS.
 - Diagnostica: `/Applications/SubnetScout.app/Contents/MacOS/SubnetScout --diagnose-network`.
+- Verifica visiva: `… --qa-snapshots <cartella>` salva uno screenshot delle viste principali (con i dati reali dello storico).
+- **Portachiavi**: lo storico è cifrato con una chiave nel Portachiavi. Senza Developer ID, macOS lega l'accesso
+  all'hash del binario: dopo ogni aggiornamento chiede di nuovo il permesso («Consenti sempre»). L'app nel frattempo
+  resta utilizzabile.
 
 ## Funzioni
 

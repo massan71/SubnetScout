@@ -45,6 +45,7 @@ struct GradeBadge: View {
 
     private var color: Color {
         switch grade {
+        case "–": .gray
         case "A": .green
         case "B": .mint
         case "C": .yellow

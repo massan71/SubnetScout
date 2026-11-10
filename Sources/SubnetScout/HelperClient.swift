@@ -4,6 +4,8 @@ import ScanKit
 
 /// Stato del privileged helper come lo vede l'app.
 enum HelperState: Equatable {
+    /// Primo controllo ancora in corso.
+    case checking
     /// L'app non gira dal bundle (es. `swift run`): helper non disponibile.
     case unavailable
     case notInstalled

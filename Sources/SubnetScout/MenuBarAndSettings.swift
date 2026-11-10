@@ -78,8 +78,12 @@ struct ScheduleSettingsView: View {
                 Picker("Profilo", selection: $profile) {
                     ForEach(ScanProfile.allCases.filter { $0 != .full }) { Text($0.name).tag($0.rawValue) }
                 }
-                TextField("Target", text: $target, prompt: Text("Rete attuale (automatica)"))
-                    .font(.body.monospaced())
+                LabeledContent("Target") {
+                    TextField("Target", text: $target, prompt: Text("Rete attuale (automatica)"))
+                        .labelsHidden()
+                        .multilineTextAlignment(.trailing)
+                        .font(.body.monospaced())
+                }
                 Toggle("Come amministratore (OS, UDP, sonda DHCP)", isOn: $fullPrivileges)
                 Text(statusText)
                     .font(.caption)

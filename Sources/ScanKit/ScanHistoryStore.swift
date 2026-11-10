@@ -84,6 +84,14 @@ public struct ScanHistoryStore: Sendable {
         return results.sorted { $0.finishedAt > $1.finishedAt }
     }
 
+    /// Come `loadAll()`, più il numero di file non decifrabili, in un solo passaggio.
+    public func loadAllReportingUnreadable() -> (results: [ScanResult], unreadable: Int) {
+        let results = loadAll()
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        let encrypted = files.filter { $0.pathExtension == Self.fileExtension }.count
+        return (results, max(0, encrypted - results.count))
+    }
+
     /// Numero di file che non è stato possibile decifrare (es. chiave cancellata).
     public func unreadableCount() -> Int {
         let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []

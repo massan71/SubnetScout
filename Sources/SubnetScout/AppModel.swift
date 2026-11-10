@@ -34,16 +34,22 @@ final class AppModel {
     private(set) var current: ScanResult?
     private(set) var diff: ScanDiff?
     private(set) var history: [ScanResult] = []
+    /// Storico in caricamento (lettura della chiave dal Portachiavi).
+    private(set) var historyLoading = false
     /// Avviso sullo storico (es. scansioni cifrate non decifrabili).
     private(set) var historyWarning: String?
     var selectedHostID: Host.ID?
+    /// Mostra la configurazione guidata (menu Aiuto).
+    var showOnboarding = false
+    /// Scheda dei risultati (Dispositivi / Problemi / Rete).
+    var resultsMode: ResultsView.Mode = .devices
     var selectedHistoryID: ScanResult.ID?
 
     /// Dispositivi che l'utente ha segnato come noti (chiave = MAC o IP).
     private(set) var trusted: Set<String>
 
     /// Stato del privileged helper.
-    private(set) var helperState: HelperState = .unavailable
+    private(set) var helperState: HelperState = .checking
     private(set) var helperBusy = false
 
     private let store = ScanHistoryStore()
@@ -59,18 +65,31 @@ final class AppModel {
     init() {
         trusted = Set(UserDefaults.standard.stringArray(forKey: "trustedDevices") ?? [])
         refreshEnvironment()
-        history = store.loadAll()
-        let unreadable = store.unreadableCount()
-        if unreadable > 0 {
-            historyWarning = "\(unreadable) scansioni salvate non sono leggibili: la chiave di cifratura nel Portachiavi manca o è cambiata."
+        // Lo storico è cifrato con una chiave nel Portachiavi: leggerla può far comparire
+        // una richiesta di macOS (dopo ogni aggiornamento, senza Developer ID). Lo si
+        // carica in background per non bloccare l'interfaccia nel frattempo.
+        historyLoading = true
+        let store = self.store
+        Task.detached(priority: .userInitiated) {
+            let (all, unreadable) = store.loadAllReportingUnreadable()
+            await MainActor.run {
+                self.history = all + self.history.filter { s in !all.contains { $0.id == s.id } }
+                self.historyLoading = false
+                if unreadable > 0 {
+                    self.historyWarning = "\(unreadable) scansioni salvate non sono leggibili: la chiave di cifratura nel Portachiavi manca, è cambiata o l'accesso è stato negato."
+                }
+                if self.current == nil, let last = self.history.first { self.show(last) }
+            }
         }
-        if let last = history.first { show(last) }
         Task { await refreshHelper() }
         // Dopo l'approvazione in Impostazioni di Sistema l'utente torna all'app: ricontrolla.
         activationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in await self?.refreshHelper() }
+            Task { @MainActor in
+                self?.refreshEnvironment()   // la rete può essere cambiata (Wi-Fi diverso)
+                await self?.refreshHelper()
+            }
         }
         openScanObserver = NotificationCenter.default.addObserver(
             forName: Self.openScanNotification, object: nil, queue: .main
@@ -174,6 +193,11 @@ final class AppModel {
     @discardableResult
     func launch(targets: [String], profile: ScanProfile, privileged: Bool, origin: ScanOrigin) -> Bool {
         guard !isScanning, let nmapPath else { return false }
+        // Senza rotta predefinita il Mac non è in rete: una scansione della LAN darebbe 0 dispositivi.
+        if origin == .manual, PrivateTargets.allPrivate(targets), NetworkInfo.defaultRoute().gateway == nil {
+            phase = .failed("Il Mac non risulta collegato a nessuna rete. Collegati al Wi-Fi o via cavo e riprova.")
+            return false
+        }
         let engine = ScanEngine(nmapPath: nmapPath)
         // Il helper scansiona solo reti private: i target pubblici vanno con nmap locale.
         let helperForThis = usesHelper && PrivateTargets.allPrivate(targets)
@@ -220,7 +244,11 @@ final class AppModel {
                         }
                     })
                 scanStage = ""
-                try? store.save(result)
+                // Fuori dal thread principale: la chiave del Portachiavi può richiedere conferma.
+                let store = self.store
+                if case .failure(let error) = await Task.detached(operation: { try store.save(result) }).result {
+                    historyWarning = "Scansione non salvata nello storico: \(error.localizedDescription)"
+                }
                 history.insert(result, at: 0)
                 if origin == .manual || current == nil || current?.target == result.target { show(result) }
                 phase = .idle

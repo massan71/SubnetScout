@@ -99,6 +99,8 @@ final class ScanScheduler {
 
     func tick() {
         refresh()
+        // Nessuna scansione durante la verifica visiva (--qa-snapshots).
+        if CommandLine.arguments.contains("--qa-snapshots") { return }
         guard ScheduleSettings.enabled, let nextRun, Date() >= nextRun, let model else { return }
         guard !model.isScanning else { lastSkipReason = "Un'altra scansione era in corso."; return }
         guard let targets = Self.resolveTargets() else {

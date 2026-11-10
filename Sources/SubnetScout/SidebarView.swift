@@ -25,6 +25,14 @@ struct SidebarView: View {
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.body, design: .monospaced))
                         .onSubmit { model.startScan() }
+                    if let current = otherNetworkHint {
+                        HStack {
+                            Label("Non è la rete attuale (\(current)).", systemImage: "wifi.exclamationmark")
+                                .font(.caption).foregroundStyle(.orange)
+                            Button("Usa la rete attuale") { model.target = current }
+                                .controlSize(.small)
+                        }
+                    }
                     if let warning = sizeWarning {
                         Label(warning, systemImage: "exclamationmark.triangle")
                             .font(.caption)
@@ -43,7 +51,7 @@ struct SidebarView: View {
                     Toggle(isOn: $model.privileged.animation()) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Come amministratore")
-                            Text("SYN scan, OS detection, UDP e indirizzi MAC.")
+                            Text("Aggiunge riconoscimento del sistema operativo, UDP e sonda DHCP.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -70,6 +78,15 @@ struct SidebarView: View {
                     }
                 }
 
+                if model.historyLoading && model.history.isEmpty {
+                    Section("Storico") {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("Caricamento dello storico cifrato… Se macOS chiede l'accesso al Portachiavi, scegli «Consenti sempre».")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
                 if !model.history.isEmpty {
                     Section("Storico") {
                         if let warning = model.historyWarning {
@@ -105,6 +122,15 @@ struct SidebarView: View {
         .formStyle(.grouped)
     }
 
+    /// Il target è una rete CIDR che non corrisponde a nessuna interfaccia attiva
+    /// (tipico dopo aver cambiato Wi-Fi): restituisce la rete attuale da proporre.
+    private var otherNetworkHint: String? {
+        let t = model.target.trimmingCharacters(in: .whitespaces)
+        guard t.contains("/"), !t.contains(" "), let first = model.interfaces.first,
+              !model.interfaces.contains(where: { $0.cidr == t }) else { return nil }
+        return first.cidr
+    }
+
     private var sizeWarning: String? {
         guard let targets = try? TargetParser.parse(model.target) else { return nil }
         let n = TargetParser.estimatedHostCount(targets)
@@ -124,6 +150,11 @@ struct HelperStatusView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             switch model.helperState {
+            case .checking:
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Controllo dell'helper…").font(.caption).foregroundStyle(.secondary)
+                }
             case .unavailable:
                 note("key", .secondary,
                      "Come amministratore verrà chiesta la password. Il helper è disponibile solo avviando SubnetScout.app.")
@@ -238,7 +269,7 @@ struct HistoryRow: View {
 
     var body: some View {
         HStack {
-            GradeBadge(grade: scan.risk.grade, size: 26)
+            GradeBadge(grade: scan.profile.scansPorts ? scan.risk.grade : "–", size: 26)
             VStack(alignment: .leading, spacing: 2) {
                 Text(scan.finishedAt.formatted(date: .abbreviated, time: .shortened))
                 Text("\(scan.target) · \(scan.hosts.count) host · \(scan.profile.name)")
@@ -256,8 +287,14 @@ struct RiskSummaryView: View {
     var body: some View {
         let risk = result.risk
         HStack(spacing: 12) {
-            GradeBadge(grade: risk.grade, size: 44)
+            GradeBadge(grade: result.profile.scansPorts ? risk.grade : "–", size: 44)
             VStack(alignment: .leading, spacing: 4) {
+                if !result.profile.scansPorts {
+                    // La Discovery non analizza servizi: un voto «A» sarebbe fuorviante.
+                    Text("Audit non eseguito").font(.headline)
+                    Text("La Discovery trova solo i dispositivi: per il voto usa Veloce o Standard.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
                 Text("Punteggio \(risk.score)/100")
                     .font(.headline)
                 HStack(spacing: 6) {
@@ -269,6 +306,7 @@ struct RiskSummaryView: View {
                     if risk.counts.isEmpty {
                         Text("Nessun problema").font(.caption).foregroundStyle(.secondary)
                     }
+                }
                 }
             }
         }

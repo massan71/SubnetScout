@@ -10,6 +10,7 @@ enum Entry {
         if CommandLine.arguments.contains("--diagnose-network") {
             Diagnostics.runAndExit()
         }
+        if MainActor.assumeIsolated({ QASnapshots.runIfRequested() }) { return }
         SubnetScoutApp.main()
     }
 }
@@ -38,6 +39,10 @@ struct SubnetScoutApp: App {
                 Button("Esporta report HTML…") { model.export(.html) }
                     .keyboardShortcut("e", modifiers: .command)
                     .disabled(model.current == nil)
+            }
+            CommandGroup(replacing: .help) {
+                Button("Configurazione guidata…") { model.showOnboarding = true }
+                Link("SubnetScout su GitHub", destination: URL(string: "https://github.com/massan71/SubnetScout")!)
             }
         }
         MenuBarExtra(isInserted: $showMenuBar) {

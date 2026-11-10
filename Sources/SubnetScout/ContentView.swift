@@ -3,7 +3,8 @@ import ScanKit
 
 struct ContentView: View {
     @Environment(AppModel.self) private var model
-    @AppStorage("acceptedDisclaimer") private var acceptedDisclaimer = false
+    /// Chi aveva già accettato l'avviso nelle versioni precedenti non rivede la configurazione.
+    @AppStorage("onboardingDone") private var onboardingDone = UserDefaults.standard.bool(forKey: "acceptedDisclaimer")
 
     var body: some View {
         NavigationSplitView {
@@ -21,7 +22,7 @@ struct ContentView: View {
                                            description: Text("Scegli la subnet e premi «Avvia scansione» (⌘R)."))
                 }
             }
-            .navigationSplitViewColumnWidth(min: 440, ideal: 560)
+            .navigationSplitViewColumnWidth(min: 560, ideal: 760)
         } detail: {
             if let host = model.selectedHost, let result = model.current {
                 HostDetailView(host: host, result: result)
@@ -30,8 +31,13 @@ struct ContentView: View {
             }
         }
         .toolbar { toolbar }
-        .sheet(isPresented: .constant(!acceptedDisclaimer)) {
-            DisclaimerView { acceptedDisclaimer = true }
+        .sheet(isPresented: Binding(get: { !onboardingDone || model.showOnboarding },
+                                    set: { if !$0 { model.showOnboarding = false } })) {
+            OnboardingView {
+                onboardingDone = true
+                model.showOnboarding = false
+            }
+            .environment(model)
         }
         .alert("Errore", isPresented: errorBinding) {
             Button("OK") { model.dismissError() }
@@ -87,27 +93,5 @@ struct MissingNmapView: View {
         } actions: {
             Button("Riprova") { model.refreshEnvironment() }
         }
-    }
-}
-
-struct DisclaimerView: View {
-    let onAccept: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label("Usa SubnetScout in modo responsabile", systemImage: "hand.raised.fill")
-                .font(.title2.bold())
-            Text("Scansiona solo reti di tua proprietà o per cui hai un'autorizzazione esplicita. In molti Paesi la scansione non autorizzata di sistemi altrui è illegale e può violare i termini del tuo provider o della tua azienda.")
-            Text("I profili inclusi usano solo script NSE delle categorie «safe» e «default»: non tentano exploit né brute force.")
-                .foregroundStyle(.secondary)
-            HStack {
-                Spacer()
-                Button("Ho capito, continua", action: onAccept)
-                    .keyboardShortcut(.defaultAction)
-            }
-        }
-        .padding(24)
-        .frame(width: 460)
-        .interactiveDismissDisabled()
     }
 }
