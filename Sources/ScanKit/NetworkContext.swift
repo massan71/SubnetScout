@@ -1,28 +1,28 @@
 import Foundation
 
-/// Stato della rete al momento della scansione: serve alle regole che non
-/// riguardano un singolo servizio (ARP spoofing, DHCP non autorizzati, UPnP…)
-/// e al confronto con le scansioni successive.
+/// State of the network at scan time: used by the rules that are not about
+/// a single service (ARP spoofing, rogue DHCP, UPnP…)
+/// and for comparison with later scans.
 public struct NetworkContext: Codable, Hashable, Sendable {
     public var interface: String?
     public var localIP: String?
     public var gatewayIP: String?
     public var gatewayMAC: String?
-    /// Server DHCP che ha assegnato l'indirizzo a questo Mac.
+    /// DHCP server that assigned the address to this Mac.
     public var dhcpServer: String?
-    /// Router e DNS ricevuti dal DHCP.
+    /// Router and DNS received from DHCP.
     public var dhcpRouters: [String]
     public var dnsServers: [String]
-    /// Offerte raccolte da `broadcast-dhcp-discover` (solo come amministratore).
+    /// Offers collected by `broadcast-dhcp-discover` (as administrator only).
     public var dhcpOffers: [DHCPOffer]
     public var dhcpProbed: Bool
-    /// Dispositivi UPnP Internet Gateway trovati in LAN.
+    /// UPnP Internet Gateway Devices found on the LAN.
     public var upnpGateways: [UPnPGateway]
     public var upnpProbed: Bool
-    /// true se macOS ha bloccato l'accesso alla rete locale (tabella ARP vuota):
-    /// controllo ARP spoofing e UPnP non sono affidabili.
+    /// true if macOS blocked access to the local network (empty ARP table):
+    /// the ARP spoofing and UPnP checks are not reliable.
     public var localNetworkBlocked: Bool?
-    /// Motivo per cui la ricerca UPnP non è stata possibile (es. permesso «Rete locale» negato).
+    /// Why the UPnP lookup was not possible (e.g. Local Network permission denied).
     public var upnpError: String?
 
     public init(interface: String? = nil, localIP: String? = nil, gatewayIP: String? = nil, gatewayMAC: String? = nil,
@@ -59,7 +59,7 @@ public struct DHCPOffer: Codable, Hashable, Sendable {
         self.interface = interface
     }
 
-    /// Legge l'output di `broadcast-dhcp-discover`:
+    /// Reads the output of `broadcast-dhcp-discover`:
     ///
     ///     Response 1 of 1:
     ///       Interface: en0
@@ -103,10 +103,10 @@ public struct UPnPGateway: Codable, Hashable, Sendable, Identifiable {
     public var friendlyName: String?
     public var manufacturer: String?
     public var model: String?
-    /// Servizio WANIPConnection / WANPPPConnection usato per leggere i port mapping.
+    /// WANIPConnection / WANPPPConnection service used to read the port mappings.
     public var serviceType: String?
     public var mappings: [UPnPPortMapping]
-    /// false se il servizio esiste ma non permette di leggere la tabella.
+    /// false if the service exists but does not allow reading the table.
     public var mappingsReadable: Bool
 
     public init(ip: String, location: String, friendlyName: String? = nil, manufacturer: String? = nil,
@@ -136,7 +136,7 @@ public struct UPnPPortMapping: Codable, Hashable, Sendable {
     public var enabled: Bool
     public var description: String
     public var leaseSeconds: Int
-    /// Host remoto ammesso; vuoto = chiunque su Internet.
+    /// Allowed remote host; empty = anyone on the Internet.
     public var remoteHost: String
 
     public init(externalPort: Int, proto: String, internalClient: String, internalPort: Int, enabled: Bool,

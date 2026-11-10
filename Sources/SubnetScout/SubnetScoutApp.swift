@@ -5,8 +5,8 @@ import UserNotifications
 @main
 enum Entry {
     static func main() {
-        // SubnetScout --diagnose-network: controlla rete locale, ARP, DHCP e UPnP con
-        // i permessi e le impostazioni reali dell'app, stampa il risultato ed esce.
+        // SubnetScout --diagnose-network: checks local network, ARP, DHCP and UPnP with
+        // the app's real permissions and settings, prints the result and exits.
         if CommandLine.arguments.contains("--diagnose-network") {
             Diagnostics.runAndExit()
         }
@@ -61,18 +61,18 @@ struct SubnetScoutApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
-        // Necessario quando si avvia con `swift run` (binario senza bundle).
+        // Needed when launched with `swift run` (binary without a bundle).
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    /// Con l'icona nella barra dei menu l'app resta attiva anche a finestra chiusa,
-    /// così le scansioni programmate continuano.
+    /// With the menu bar icon the app stays running even with the window closed,
+    /// so scheduled scans keep going.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         !ScheduleSettings.showMenuBar
     }
 
-    // Clic su una notifica: apri la scansione.
+    // Click on a notification: open the scan.
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                             withCompletionHandler completionHandler: @escaping () -> Void) {
         let id = (response.notification.request.content.userInfo[Notifier.scanIDKey] as? String).flatMap(UUID.init)

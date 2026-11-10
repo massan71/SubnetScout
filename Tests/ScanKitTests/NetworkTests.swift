@@ -195,16 +195,16 @@ typealias Host = ScanKit.Host
     }
 }
 
-/// Facoltativo, contro la rete reale: SUBNETSCOUT_LIVE=1 swift test --filter LiveUPnP
+/// Optional, against the real network: SUBNETSCOUT_LIVE=1 swift test --filter LiveUPnP
 @Suite struct LiveUPnPTests {
     @Test(.enabled(if: ProcessInfo.processInfo.environment["SUBNETSCOUT_LIVE"] == "1"))
     func discoversGatewaysOnThisNetwork() async {
         let raw = UPnPInspector.ssdpSearch(extraTargets: [], timeout: 3)
-        print("SSDP:", raw.responses, "errore invio:", raw.sendError ?? "-")
+        print("SSDP:", raw.responses, "send error:", raw.sendError ?? "-")
         let gws = (try? await UPnPInspector.discover(extraTargets: [NetworkInfo.defaultGateway()].compactMap { $0 })) ?? []
         for gw in gws {
-            print("UPnP:", gw.displayName, gw.ip, "servizio:", gw.serviceType ?? "-",
-                  "leggibile:", gw.mappingsReadable, "porte:", gw.mappings.count)
+            print("UPnP:", gw.displayName, gw.ip, "service:", gw.serviceType ?? "-",
+                  "readable:", gw.mappingsReadable, "ports:", gw.mappings.count)
         }
         #expect(!gws.isEmpty)
     }
@@ -214,15 +214,15 @@ typealias Host = ScanKit.Host
         let cidr = try #require(NetworkInfo.interfaces().first?.cidr)
         let result = try await ScanEngine(nmapPath: NmapLocator.find()!).scan(targets: [cidr], profile: .discovery, privileged: false)
         let net = try #require(result.network)
-        print("RETE: gateway", net.gatewayIP ?? "-", net.gatewayMAC ?? "-", "dhcp", net.dhcpServer ?? "-", "dns", net.dnsServers,
+        print("NETWORK: gateway", net.gatewayIP ?? "-", net.gatewayMAC ?? "-", "dhcp", net.dhcpServer ?? "-", "dns", net.dnsServers,
               "upnp", net.upnpGateways.map(\.displayName), net.upnpError ?? "")
-        for f in result.findings { print("PROBLEMA:", f.severity.label, f.ruleID, f.hostIP, f.title) }
+        for f in result.findings { print("FINDING:", f.severity.label, f.ruleID, f.hostIP, f.title) }
         #expect(net.gatewayIP != nil)
     }
 }
 
 
-/// Lo script root della modalità password deve fermare nmap su annullamento o se l'app muore.
+/// The root script of password mode must stop nmap on cancellation or if the app dies.
 @Suite struct PrivilegedScriptTests {
     func fakeNmap() throws -> (URL, URL) {
         let dir = FileManager.default.temporaryDirectory.appending(path: "ss-script-\(UUID().uuidString)")
@@ -259,7 +259,7 @@ typealias Host = ScanKit.Host
     @Test func deadAppStopsNmap() throws {
         let (dir, fake) = try fakeNmap()
         defer { try? FileManager.default.removeItem(at: dir) }
-        // PID di un processo già terminato = «app morta».
+        // PID of an already terminated process = "dead app".
         let gone = Process()
         gone.executableURL = URL(fileURLWithPath: "/usr/bin/true")
         try gone.run(); gone.waitUntilExit()
@@ -285,14 +285,14 @@ typealias Host = ScanKit.Host
                   "100.64.0.0/16", "127.0.0.1", "fe80::1", "fd12:3456::/64", "::1", "localhost"]
         let out = try PrivateTargets.validate(ok)
         #expect(out.contains("10.0.1.0/24"))
-        #expect(!out.contains("localhost"), "gli hostname vanno sostituiti dagli IP risolti")
+        #expect(!out.contains("localhost"), "hostnames are replaced by the resolved IPs")
         #expect(out.contains("127.0.0.1") || out.contains("::1"))
     }
 
     @Test func rejectsPublicOrBroadTargets() {
         for t in ["8.8.8.8", "10.0.0.0/7", "192.168.0.0/15", "172.15.255.255", "172.16-32.0.1", "1.1.1.*",
                   "2001:4860::8888", "fe80::/9", "0.0.0.0/0"] {
-            #expect(throws: PrivateTargets.Rejection.self, "\(t) deve essere rifiutato") { try PrivateTargets.validate([t]) }
+            #expect(throws: PrivateTargets.Rejection.self, "\(t) must be rejected") { try PrivateTargets.validate([t]) }
         }
     }
 

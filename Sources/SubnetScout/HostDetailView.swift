@@ -149,7 +149,7 @@ struct HostDetailView: View {
         }
     }
 
-    /// CVE note per i servizi di questo dispositivo.
+    /// Known CVEs for the services of this device.
     @ViewBuilder
     private var cves: some View {
         let perPort = host.openPorts.map { ($0, CVEAudit.entries(for: $0, in: result.vulnerabilities)) }.filter { !$1.isEmpty }

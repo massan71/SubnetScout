@@ -4,9 +4,9 @@ import ServiceManagement
 import UserNotifications
 import ScanKit
 
-// MARK: - Impostazioni
+// MARK: - Settings
 
-/// Impostazioni della scansione programmata (UserDefaults).
+/// Scheduled scan settings (UserDefaults).
 enum ScheduleSettings {
     static let enabledKey = "scheduleEnabled"
     static let intervalKey = "scheduleInterval"
@@ -37,7 +37,7 @@ enum ScheduleSettings {
         return v > 0 ? v : Interval.daily.rawValue
     }
     static var profile: ScanProfile { ScanProfile(rawValue: defaults.string(forKey: profileKey) ?? "") ?? .quick }
-    /// Vuoto = rete dell'interfaccia attiva al momento della scansione.
+    /// Empty = network of the active interface at scan time.
     static var target: String { defaults.string(forKey: targetKey) ?? "" }
     static var fullPrivileges: Bool { defaults.bool(forKey: fullPrivilegesKey) }
     static var notify: Bool { defaults.object(forKey: notifyKey) as? Bool ?? true }
@@ -48,20 +48,20 @@ enum ScheduleSettings {
     }
 }
 
-// MARK: - Pianificatore
+// MARK: - Scheduler
 
-/// Controlla ogni minuto (e al risveglio del Mac) se è ora della scansione
-/// programmata. Lo stato sta in UserDefaults, quindi una scansione persa mentre
-/// il Mac era spento o l'app chiusa parte appena possibile.
+/// Checks every minute (and when the Mac wakes) whether the scheduled scan
+/// is due. The state lives in UserDefaults, so a scan missed while
+/// the Mac was off or the app closed starts as soon as possible.
 @MainActor
 @Observable
 final class ScanScheduler {
     private weak var model: AppModel?
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var wakeObserver: NSObjectProtocol?
-    /// Ultimo motivo per cui una scansione programmata non è partita.
+    /// Last reason a scheduled scan did not start.
     private(set) var lastSkipReason: String?
-    /// Aggiornato a ogni controllo, per l'interfaccia.
+    /// Updated on every check, for the interface.
     private(set) var nextRun: Date?
 
     init(model: AppModel) {
@@ -73,7 +73,7 @@ final class ScanScheduler {
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            // Lascia il tempo alla rete di tornare su.
+            // Give the network time to come back up.
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(60))
                 self?.tick()
@@ -82,10 +82,10 @@ final class ScanScheduler {
         refresh()
     }
 
-    /// Da chiamare quando cambiano le impostazioni.
+    /// Call when the settings change.
     func settingsChanged() {
         if ScheduleSettings.enabled, ScheduleSettings.lastRun == nil {
-            // Prima attivazione: una scansione di riferimento tra un minuto.
+            // First activation: a baseline scan in one minute.
             ScheduleSettings.lastRun = Date().addingTimeInterval(-ScheduleSettings.interval + 60)
             Notifier.requestAuthorization()
         }
@@ -99,7 +99,7 @@ final class ScanScheduler {
 
     func tick() {
         refresh()
-        // Nessuna scansione durante la verifica visiva (--qa-snapshots).
+        // No scans during the visual check (--qa-snapshots).
         if CommandLine.arguments.contains("--qa-snapshots") { return }
         guard ScheduleSettings.enabled, let nextRun, Date() >= nextRun, let model else { return }
         guard !model.isScanning else { lastSkipReason = "Another scan was in progress."; return }
@@ -115,8 +115,8 @@ final class ScanScheduler {
         }
     }
 
-    /// Target salvato oppure la rete dell'interfaccia della rotta predefinita
-    /// (solo se non più grande di /22, per non far partire scansioni enormi da sole).
+    /// Saved target, or the network of the default route's interface
+    /// (only if no larger than /22, so huge scans never start on their own).
     static func resolveTargets() -> [String]? {
         let saved = ScheduleSettings.target.trimmingCharacters(in: .whitespaces)
         if !saved.isEmpty { return try? TargetParser.parse(saved) }
@@ -128,7 +128,7 @@ final class ScanScheduler {
     }
 }
 
-// MARK: - Notifiche
+// MARK: - Notifications
 
 enum Notifier {
     static let scanIDKey = "scanID"
@@ -164,7 +164,7 @@ enum Notifier {
     }
 }
 
-// MARK: - Avvio all'accesso
+// MARK: - Open at login
 
 enum LoginItem {
     static var isEnabled: Bool { SMAppService.mainApp.status == .enabled }

@@ -14,41 +14,41 @@ final class AppModel {
 
     enum ExportFormat { case html, csv, json }
 
-    // Ambiente
+    // Environment
     private(set) var nmapPath: String?
     private(set) var nmapVersion: String?
     private(set) var interfaces: [LocalInterface] = []
 
-    // Configurazione
+    // Configuration
     var target: String = ""
     var profile: ScanProfile = .standard
     var privileged = false
 
-    // Stato
+    // State
     private(set) var phase: Phase = .idle
     private(set) var scanStartedAt: Date?
-    /// es. "Standard + audit · helper"
+    /// e.g. "Standard + audit · helper"
     private(set) var scanSummary = ""
-    /// Fase dopo nmap, es. «Ricerca CVE 3 di 12».
+    /// Phase after nmap, e.g. "CVE lookup 3 of 12".
     private(set) var scanStage = ""
     private(set) var current: ScanResult?
     private(set) var diff: ScanDiff?
     private(set) var history: [ScanResult] = []
-    /// Storico in caricamento (lettura della chiave dal Portachiavi).
+    /// History loading (reading the key from the Keychain).
     private(set) var historyLoading = false
-    /// Avviso sullo storico (es. scansioni cifrate non decifrabili).
+    /// History warning (e.g. encrypted scans that cannot be decrypted).
     private(set) var historyWarning: String?
     var selectedHostID: Host.ID?
-    /// Mostra la configurazione guidata (menu Aiuto).
+    /// Shows the setup assistant (Help menu).
     var showOnboarding = false
-    /// Scheda dei risultati (Dispositivi / Problemi / Rete).
+    /// Results tab (Devices / Issues / Network / Map).
     var resultsMode: ResultsView.Mode = .devices
     var selectedHistoryID: ScanResult.ID?
 
-    /// Dispositivi che l'utente ha segnato come noti (chiave = MAC o IP).
+    /// Devices the user marked as known (key = MAC or IP).
     private(set) var trusted: Set<String>
 
-    /// Stato del privileged helper.
+    /// Privileged helper state.
     private(set) var helperState: HelperState = .checking
     private(set) var helperBusy = false
 
@@ -56,18 +56,18 @@ final class AppModel {
     private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var activationObserver: NSObjectProtocol?
     @ObservationIgnored private var openScanObserver: NSObjectProtocol?
-    /// Scansioni programmate.
+    /// Scheduled scans.
     private(set) var scheduler: ScanScheduler!
 
-    /// Notifica interna per aprire una scansione (es. clic su una notifica).
+    /// Internal notification to open a scan (e.g. click on a notification).
     static let openScanNotification = Notification.Name("SubnetScout.openScan")
 
     init() {
         trusted = Set(UserDefaults.standard.stringArray(forKey: "trustedDevices") ?? [])
         refreshEnvironment()
-        // Lo storico è cifrato con una chiave nel Portachiavi: leggerla può far comparire
-        // una richiesta di macOS (dopo ogni aggiornamento, senza Developer ID). Lo si
-        // carica in background per non bloccare l'interfaccia nel frattempo.
+        // The history is encrypted with a key in the Keychain: reading it can bring up
+        // a macOS prompt (after every update, without a Developer ID). It is
+        // loaded in the background so the interface is not blocked meanwhile.
         historyLoading = true
         let store = self.store
         Task.detached(priority: .userInitiated) {
@@ -82,12 +82,12 @@ final class AppModel {
             }
         }
         Task { await refreshHelper() }
-        // Dopo l'approvazione in Impostazioni di Sistema l'utente torna all'app: ricontrolla.
+        // After the approval in System Settings the user comes back to the app: check again.
         activationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.refreshEnvironment()   // la rete può essere cambiata (Wi-Fi diverso)
+                self?.refreshEnvironment()   // the network may have changed (different Wi-Fi)
                 await self?.refreshHelper()
             }
         }
@@ -102,13 +102,13 @@ final class AppModel {
 
     // MARK: Privileged helper
 
-    /// Il helper è registrato e risponde (anche se nmap non è utilizzabile come root).
+    /// The helper is registered and responds (even if nmap cannot be used as root).
     var helperIsReachable: Bool { if case .ready = helperState { true } else { false } }
 
-    /// Come verrà eseguita la scansione con «Come amministratore» attivo.
-    /// Con il helper pronto tutte le scansioni passano da lui: niente password e
-    /// niente limiti del permesso «Rete locale». «Come amministratore» decide solo
-    /// gli argomenti (OS detection, UDP, sonda DHCP).
+    /// How the scan will run with "As administrator" on.
+    /// With the helper ready every scan goes through it: no password and
+    /// no Local Network permission limits. "As administrator" only decides
+    /// the arguments (OS detection, UDP, DHCP probe).
     var usesHelper: Bool { helperState.canScan }
 
     func refreshHelper() async {
@@ -140,7 +140,7 @@ final class AppModel {
             do {
                 _ = try await HelperClient.adoptNmap()
             } catch is AdminAuthorization.Cancelled {
-                // l'utente ha annullato la richiesta password
+                // the user cancelled the password prompt
             } catch {
                 phase = .failed(error.localizedDescription)
             }
@@ -175,7 +175,7 @@ final class AppModel {
         if target.isEmpty, let first = interfaces.first { target = first.cidr }
     }
 
-    // MARK: Scansione
+    // MARK: Scan
 
     enum ScanOrigin { case manual, scheduled }
 
@@ -188,20 +188,20 @@ final class AppModel {
         }
     }
 
-    /// Avvia una scansione. Usata dal pulsante e dalla pianificazione.
-    /// - Returns: false se non è partita (scansione già in corso, nmap assente).
+    /// Starts a scan. Used by the button and by the schedule.
+    /// - Returns: false if it did not start (scan already running, nmap missing).
     @discardableResult
     func launch(targets: [String], profile: ScanProfile, privileged: Bool, origin: ScanOrigin) -> Bool {
         guard !isScanning, let nmapPath else { return false }
-        // Senza rotta predefinita il Mac non è in rete: una scansione della LAN darebbe 0 dispositivi.
+        // Without a default route the Mac is offline: a LAN scan would find 0 devices.
         if origin == .manual, PrivateTargets.allPrivate(targets), NetworkInfo.defaultRoute().gateway == nil {
             phase = .failed("This Mac does not seem to be connected to any network. Connect to Wi-Fi or Ethernet and try again.")
             return false
         }
         let engine = ScanEngine(nmapPath: nmapPath)
-        // Il helper scansiona solo reti private: i target pubblici vanno con nmap locale.
+        // The helper only scans private networks: public targets go through local nmap.
         let helperForThis = usesHelper && PrivateTargets.allPrivate(targets)
-        // Le scansioni programmate non chiedono mai la password.
+        // Scheduled scans never ask for the password.
         let askPassword = privileged && !helperForThis && origin == .manual
         let executor: any NmapExecutor = helperForThis
             ? HelperNmapExecutor(fullPrivileges: privileged)
@@ -211,22 +211,22 @@ final class AppModel {
         scanSummary = profile.name + (helperForThis ? " · helper" : askPassword ? " · password" : " · user")
             + (origin == .scheduled ? " · scheduled" : "")
 
-        // ARP e UPnP: con il helper attivo li legge lui (non è soggetto al permesso
-        // «Rete locale», che macOS può negare all'app); se fallisce, li legge l'app.
+        // ARP and UPnP: with the helper active it reads them (it is not subject to the
+        // Local Network permission, which macOS can deny the app); if that fails, the app reads them.
         let probe: ScanEngine.ProbeProvider? = helperIsReachable ? { @Sendable in
             if let p = try? await HelperClient.networkProbe() { return p }
             return await NetworkProbe.run(source: "app")
         } : nil
 
-        // CVE da NVD: solo se attivata nelle impostazioni (invia prodotto e versione).
+        // CVEs from NVD: only if enabled in the settings (sends product and version).
         let cveLookup: NVDClient? = CVESettings.enabled
             ? NVDClient(options: .init(apiKey: CVESettings.apiKey())) : nil
         scanStage = ""
 
-        // Scansione precedente dello stesso target: serve per le regole che confrontano la rete.
+        // Previous scan of the same target: needed by the rules that compare the network.
         let previous = history.filter { $0.target == targets.joined(separator: " ") }.max { $0.finishedAt < $1.finishedAt }
         let trustedNow = trusted
-        // Evita che App Nap rallenti una scansione con la finestra nascosta.
+        // Keeps App Nap from slowing down a scan while the window is hidden.
         let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled],
                                                              reason: "Network scan")
 
@@ -244,7 +244,7 @@ final class AppModel {
                         }
                     })
                 scanStage = ""
-                // Fuori dal thread principale: la chiave del Portachiavi può richiedere conferma.
+                // Off the main thread: the Keychain key may require confirmation.
                 let store = self.store
                 if case .failure(let error) = await Task.detached(operation: { try store.save(result) }).result {
                     historyWarning = "Scan not saved to history: \(error.localizedDescription)"
@@ -262,14 +262,14 @@ final class AppModel {
             } catch is CancellationError {
                 phase = .idle
             } catch {
-                // Le scansioni programmate falliscono in silenzio (ritentano al prossimo turno).
+                // Scheduled scans fail silently (they retry on the next run).
                 phase = origin == .manual ? .failed(error.localizedDescription) : .idle
             }
         }
         return true
     }
 
-    /// Apre la scansione indicata (es. dal clic su una notifica).
+    /// Opens the given scan (e.g. from a click on a notification).
     func open(scanID: UUID) {
         if let scan = history.first(where: { $0.id == scanID }) { show(scan) }
     }
@@ -301,7 +301,7 @@ final class AppModel {
         }
     }
 
-    // MARK: Dispositivi fidati
+    // MARK: Trusted devices
 
     func isTrusted(_ host: Host) -> Bool { trusted.contains(host.deviceKey) }
 
@@ -342,7 +342,7 @@ final class AppModel {
         }
     }
 
-    /// Apre il report nel browser senza chiedere dove salvarlo.
+    /// Opens the report in the browser without asking where to save it.
     func previewReport() {
         guard let current else { return }
         let url = FileManager.default.temporaryDirectory.appending(path: "SubnetScout-report-\(current.id.uuidString.prefix(8)).html")

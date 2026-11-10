@@ -1,11 +1,11 @@
-// SubnetScoutHelper — daemon root registrato con SMAppService.
+// SubnetScoutHelper — root daemon registered with SMAppService.
 //
-// Espone via XPC (servizio Mach "net.sangalli.SubnetScout.helper") solo
-// l'esecuzione di nmap con i profili predefiniti di ScanKit. Sicurezza:
-//  • accetta connessioni solo dall'app SubnetScout (requisito di firma);
-//  • rivalida profilo e target; gli argomenti di nmap li costruisce lui;
-//  • esegue solo un nmap interamente di proprietà di root (vedi TrustedNmap);
-//  • ambiente azzerato, cwd "/", si chiude da solo quando è inattivo.
+// Exposes over XPC (Mach service "net.sangalli.SubnetScout.helper") only
+// running nmap with ScanKit's predefined profiles. Security:
+//  • accepts connections only from the SubnetScout app (signing requirement);
+//  • re-validates profile and targets; it builds the nmap arguments itself;
+//  • runs only an nmap entirely owned by root (see TrustedNmap);
+//  • cleared environment, cwd "/", exits by itself when idle.
 
 import Foundation
 import Security
@@ -14,11 +14,11 @@ import ScanKit
 
 let log = Logger(subsystem: HelperConstants.helperIdentifier, category: "helper")
 
-// MARK: - Requisito di firma del client
+// MARK: - Client signing requirement
 
-/// Il client deve essere firmato come il helper: stesso Team ID (Developer ID),
-/// stesso certificato radice (certificato proprio) oppure, con firma ad-hoc in
-/// sviluppo, almeno lo stesso identificatore.
+/// The client must be signed like the helper: same Team ID (Developer ID),
+/// same root certificate (own certificate) or, with ad-hoc signing in
+/// development, at least the same identifier.
 func clientRequirement() -> String {
     let kind = CodeSigning.current()
     if kind == .adHoc {
@@ -27,7 +27,7 @@ func clientRequirement() -> String {
     return CodeSigning.requirement(forPeer: HelperConstants.appIdentifier, signedLike: kind)
 }
 
-// MARK: - Spegnimento quando inattivo
+// MARK: - Shutdown when idle
 
 final class IdleTracker: @unchecked Sendable {
     private let lock = NSLock()
@@ -61,12 +61,12 @@ final class IdleTracker: @unchecked Sendable {
     }
 }
 
-// MARK: - Servizio
+// MARK: - Service
 
 final class HelperService: NSObject, ScanHelperProtocol, @unchecked Sendable {
     private static let maxConcurrentScans = 2
     private static let lock = NSLock()
-    nonisolated(unsafe) private static var running = 0 // protetto da `lock`
+    nonisolated(unsafe) private static var running = 0 // protected by `lock`
 
     private weak var connection: NSXPCConnection?
     private let lock = NSLock()
@@ -105,7 +105,7 @@ final class HelperService: NSObject, ScanHelperProtocol, @unchecked Sendable {
         guard let profile = ScanProfile(rawValue: profile) else { return reply(nil, "Invalid profile.") }
         let validated: [String]
         do {
-            // Sintassi + solo reti private (gli hostname diventano IP già verificati).
+            // Syntax + private networks only (hostnames become already-verified IPs).
             validated = try PrivateTargets.validate(TargetParser.parse(targets.joined(separator: " ")))
         } catch {
             return reply(nil, error.localizedDescription)
@@ -183,7 +183,7 @@ final class HelperService: NSObject, ScanHelperProtocol, @unchecked Sendable {
     }
 }
 
-/// I proxy XPC sono thread-safe: il box serve solo a dirlo al compilatore.
+/// XPC proxies are thread-safe: the box only tells the compiler so.
 struct ClientProxy: @unchecked Sendable {
     let proxy: ScanHelperClientProtocol?
     init(_ proxy: ScanHelperClientProtocol?) { self.proxy = proxy }
@@ -196,8 +196,8 @@ final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
     let idle = IdleTracker(timeout: 30)
 
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection c: NSXPCConnection) -> Bool {
-        // I messaggi di un client che non soddisfa il requisito vengono rifiutati
-        // e la connessione invalidata.
+        // Messages from a client that does not meet the requirement are rejected
+        // and the connection invalidated.
         c.setCodeSigningRequirement(requirement)
         c.exportedInterface = HelperInterfaces.service()
         c.remoteObjectInterface = HelperInterfaces.client()

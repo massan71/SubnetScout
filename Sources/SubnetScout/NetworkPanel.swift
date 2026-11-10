@@ -1,7 +1,7 @@
 import SwiftUI
 import ScanKit
 
-/// Vista «Rete»: gateway, DHCP, DNS, router UPnP e problemi a livello di rete.
+/// "Network" view: gateway, DHCP, DNS, UPnP routers and network-level issues.
 struct NetworkPanel: View {
     @Environment(AppModel.self) private var model
     let result: ScanResult

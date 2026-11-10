@@ -1,7 +1,7 @@
 import Foundation
 
-/// Regole di audit applicate ai risultati di nmap. Ogni regola guarda porte aperte,
-/// nomi dei servizi e output degli script NSE e produce dei `Finding`.
+/// Audit rules applied to nmap results. Each rule looks at open ports,
+/// service names and NSE script output and produces `Finding`s.
 public enum AuditEngine {
     public static func audit(_ hosts: [Host], now: Date = Date()) -> [Finding] {
         var out: [String: Finding] = [:]
@@ -29,7 +29,7 @@ public enum AuditEngine {
             let svc = p.serviceName
             let tcp = p.proto == "tcp"
 
-            // --- Protocolli in chiaro / obsoleti
+            // --- Cleartext / obsolete protocols
             if svc == "telnet" || (tcp && p.number == 23) {
                 add("telnet", .high, "Telnet enabled",
                     "Telnet sends credentials and the whole session in cleartext.",
@@ -67,7 +67,7 @@ public enum AuditEngine {
                     "Disable TFTP unless it is needed for provisioning.", p)
             }
 
-            // --- Accesso remoto
+            // --- Remote access
             if svc == "ms-wbt-server" || (tcp && p.number == 3389) {
                 let rdp = p.script("rdp-enum-encryption")
                 if let rdp, !rdp.contains("CredSSP (NLA): SUCCESS") {
@@ -106,7 +106,7 @@ public enum AuditEngine {
                 }
             }
 
-            // --- Database e servizi che non dovrebbero essere esposti
+            // --- Databases and services that should not be exposed
             let databases: [Int: String] = [
                 3306: "MySQL/MariaDB", 5432: "PostgreSQL", 1433: "Microsoft SQL Server", 1521: "Oracle",
                 27017: "MongoDB", 6379: "Redis", 9200: "Elasticsearch", 11211: "Memcached", 5984: "CouchDB",
@@ -124,14 +124,14 @@ public enum AuditEngine {
                     "Disable the TCP API or protect it with TLS (2376) and mutual auth.", p)
             }
 
-            // --- Condivisioni Windows / NetBIOS
+            // --- Windows shares / NetBIOS
             if tcp, p.number == 139 || svc == "netbios-ssn" {
                 add("netbios", .low, "NetBIOS enabled",
                     "NetBIOS exposes the machine name and network information; it is a legacy protocol.",
                     "Disable NetBIOS over TCP/IP if it is not needed.", p)
             }
 
-            // --- Web senza HTTPS
+            // --- Web without HTTPS
             if tcp, svc == "http" || svc == "http-proxy" || svc == "http-alt", !(p.service?.isTLS ?? false) {
                 let title = p.script("http-title").map { " (\(firstLines($0, max: 1)))" } ?? ""
                 add("http-cleartext", .low, "Web interface without HTTPS\(title)",
@@ -194,7 +194,7 @@ public enum AuditEngine {
                     "Disable unneeded methods in the web server configuration.", p)
             }
 
-            // --- Chiavi SSH
+            // --- SSH keys
             if let keys = p.script("ssh-hostkey") {
                 let weak = weakHostKeys(keys)
                 if !weak.isEmpty {
@@ -228,7 +228,7 @@ public enum AuditEngine {
             }
         }
 
-        // --- Script a livello di host (SMB)
+        // --- Host-level scripts (SMB)
         if let smb = host.hostScript("smb-protocols"), smb.contains("SMBv1") {
             add("smbv1", .high, "SMBv1 enabled",
                 "SMBv1 is the protocol exploited by WannaCry/EternalBlue.",
@@ -241,7 +241,7 @@ public enum AuditEngine {
                 "Make SMB signing mandatory.")
         }
 
-        // --- Superficie d'attacco ampia
+        // --- Large attack surface
         let open = host.openPorts.count
         if open >= 20 {
             add("many-ports", .info, "Many open ports (\(open))",
@@ -251,7 +251,7 @@ public enum AuditEngine {
         return f
     }
 
-    // MARK: - Helper di parsing script
+    // MARK: - Script parsing helpers
 
     static func firstLines(_ s: String, max: Int = 4) -> String {
         s.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
@@ -266,7 +266,7 @@ public enum AuditEngine {
         return methods.isEmpty ? nil : methods
     }
 
-    /// Righe "1024 aa:bb:… (DSA)" / "2048 SHA256:… (RSA)": DSA sempre, RSA sotto 2048 bit.
+    /// Lines "1024 aa:bb:… (DSA)" / "2048 SHA256:… (RSA)": DSA always, RSA below 2048 bits.
     static func weakHostKeys(_ s: String) -> [String] {
         s.split(separator: "\n").compactMap { raw in
             let parts = raw.trimmingCharacters(in: .whitespaces).split(separator: " ")

@@ -2,11 +2,11 @@ import Foundation
 import Security
 import CryptoKit
 
-/// Requisiti di firma per le connessioni XPC tra app e helper, ricavati dalla
-/// firma del processo corrente:
-/// - Developer ID → stessa catena Apple e stesso Team ID;
-/// - certificato proprio (es. «SubnetScout Code Signing») → stesso certificato radice;
-/// - firma ad-hoc → solo l'identificatore (debole: va bene solo in sviluppo).
+/// Signing requirements for the XPC connections between app and helper, derived from
+/// the signature of the current process:
+/// - Developer ID → same Apple chain and same Team ID;
+/// - own certificate (e.g. "SubnetScout Code Signing") → same root certificate;
+/// - ad-hoc signature → identifier only (weak: fine for development only).
 public enum CodeSigning {
     public enum Kind: Equatable, Sendable {
         case team(String)
@@ -14,7 +14,7 @@ public enum CodeSigning {
         case adHoc
     }
 
-    /// Come è firmato il processo corrente.
+    /// How the current process is signed.
     public static func current() -> Kind {
         var code: SecCode?
         var staticCode: SecStaticCode?
@@ -34,7 +34,7 @@ public enum CodeSigning {
         return .adHoc
     }
 
-    /// Requisito che il processo all'altro capo della connessione deve soddisfare.
+    /// Requirement the process at the other end of the connection must satisfy.
     public static func requirement(forPeer identifier: String, signedLike kind: Kind = current()) -> String {
         let base = "identifier \"\(identifier)\""
         switch kind {

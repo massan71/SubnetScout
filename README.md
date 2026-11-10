@@ -31,7 +31,7 @@ To work in Xcode: `open Package.swift`.
 
 Icon: `swift scripts/make-icon.swift` regenerates `Resources/AppIcon.icns` (drawn with CoreGraphics).
 
-Release: `scripts/release.sh 0.6.0 release-notes/0.6.0.md` (tests, universal build, verified zip, tag, GitHub release and Homebrew cask update).
+Release: `scripts/release.sh 0.7.0 release-notes/0.7.0.md` (tests, universal build, verified zip, tag, GitHub release and Homebrew cask update).
 
 If `xcode-select` points to the Command Line Tools, prefix commands with
 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
@@ -91,7 +91,8 @@ remove it with `sudo rm -rf "/Library/Application Support/SubnetScout"`.
 | **Risk** | Score 0–100 per host and per network, grade A–F |
 | **History** | Every scan is stored encrypted (AES-256-GCM, key in the Keychain) in `~/Library/Application Support/SubnetScout/Scans`. The diff with the previous scan shows new devices, opened or closed ports and new issues |
 | **Known devices** | Devices marked as known no longer show the “NEW” badge |
-| **Report** | Self-contained HTML (light and dark, printable to PDF from the browser, strict CSP), CSV per port, full JSON |
+| **Map** | Star map around the gateway with devices grouped by type, colored by severity, NEW and UPnP badges; click a node for its details |
+| **Report** | Self-contained HTML with the network map (light and dark, printable to PDF from the browser, strict CSP), CSV per port, full JSON |
 
 ## Layout
 
@@ -125,7 +126,7 @@ Tests/ScanKitTests/       Swift Testing with XML fixtures, fake NVD, real localh
 - [x] English interface
 - [x] App icon
 - [ ] Native PDF export (WKWebView + NSPrintOperation)
-- [ ] Visual network map
+- [x] Visual network map (app and HTML report)
 - [ ] IPv6 discovery
 - [ ] Default credential check (separate, explicitly enabled)
 

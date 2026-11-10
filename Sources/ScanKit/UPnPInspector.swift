@@ -4,20 +4,20 @@ import os
 
 private let upnpLog = Logger(subsystem: "net.sangalli.SubnetScout", category: "upnp")
 
-/// Trova i router UPnP (Internet Gateway Device) della LAN e ne legge, in sola
-/// lettura, la tabella dei port forwarding: sono le porte che i dispositivi
-/// hanno aperto da soli verso Internet.
+/// Finds the UPnP routers (Internet Gateway Devices) on the LAN and reads, read-only,
+/// their port forwarding table: these are the ports that devices
+/// opened to the Internet by themselves.
 ///
-/// Le risposte arrivano dalla rete e non sono affidabili: l'URL di descrizione
-/// deve essere http e puntare allo stesso IP che ha risposto, i documenti hanno
-/// limiti di dimensione e l'XML non risolve entità esterne.
+/// Replies come from the network and are not trustworthy: the description URL
+/// must be http and point to the same IP that replied, documents have
+/// size limits and the XML does not resolve external entities.
 public enum UPnPInspector {
     static let ssdpAddress = "239.255.255.250"
     static let maxMappings = 128
     static let maxDocumentBytes = 512 * 1024
 
     public enum DiscoveryError: LocalizedError, Equatable {
-        /// macOS ha bloccato l'invio: di solito manca il permesso «Rete locale».
+        /// macOS blocked the send: usually the Local Network permission is missing.
         case sendFailed(String)
 
         public var errorDescription: String? {
@@ -40,8 +40,8 @@ public enum UPnPInspector {
 
     // MARK: SSDP
 
-    /// IP → LOCATION per ogni dispositivo che si annuncia come Internet Gateway Device.
-    /// `sendError` è valorizzato se nessun pacchetto è partito.
+    /// IP → LOCATION for every device that announces itself as an Internet Gateway Device.
+    /// `sendError` is set if no packet went out.
     public static func ssdpSearch(extraTargets: [String], timeout: TimeInterval) -> (responses: [String: String], sendError: String?) {
         let fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
         guard fd >= 0 else { return ([:], String(cString: strerror(errno))) }
@@ -63,8 +63,8 @@ public enum UPnPInspector {
                 }
             }
         }
-        // UDP può perdersi e alcuni router ignorano richieste ravvicinate: si ripete
-        // l'invio dopo un secondo, come raccomanda la specifica SSDP.
+        // UDP can get lost and some routers ignore requests sent close together: the send
+        // is repeated after a second, as the SSDP specification recommends.
         sendAll()
         var resent = false
         let deadline = Date().addingTimeInterval(timeout)
@@ -89,7 +89,7 @@ public enum UPnPInspector {
         return (found, sent == 0 ? sendError : nil)
     }
 
-    /// Restituisce la descrizione dell'errore, o nil se il pacchetto è partito.
+    /// Returns the error description, or nil if the packet went out.
     private static func send(_ fd: Int32, _ message: String, to ip: String) -> String? {
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
@@ -114,7 +114,7 @@ public enum UPnPInspector {
         return nil
     }
 
-    // MARK: Descrizione e port mapping
+    // MARK: Description and port mappings
 
     public static func inspect(ip: String, location: String) async -> UPnPGateway? {
         guard let url = URL(string: location), url.scheme == "http", url.host == ip else { return nil }
@@ -132,7 +132,7 @@ public enum UPnPInspector {
         for index in 0..<maxMappings {
             guard let body = await soap(control, service: service.serviceType, action: "GetGenericPortMappingEntry",
                                         arguments: "<NewPortMappingIndex>\(index)</NewPortMappingIndex>") else {
-                // Errore 713 (SpecifiedArrayIndexInvalid) = fine della tabella.
+                // Error 713 (SpecifiedArrayIndexInvalid) = end of the table.
                 if index == 0 { readable = await canReadTable(control, service: service.serviceType) }
                 break
             }
@@ -144,7 +144,7 @@ public enum UPnPInspector {
         return gw
     }
 
-    /// Una tabella vuota risponde 500 con errore UPnP 713: la consideriamo leggibile.
+    /// An empty table answers 500 with UPnP error 713: we consider it readable.
     private static func canReadTable(_ control: URL, service: String) async -> Bool {
         var req = soapRequest(control, service: service, action: "GetGenericPortMappingEntry",
                               arguments: "<NewPortMappingIndex>0</NewPortMappingIndex>")
@@ -199,7 +199,7 @@ public enum UPnPInspector {
     }
 }
 
-/// Parti del device description che ci servono.
+/// The parts of the device description we need.
 struct DeviceDescription {
     struct Service { var serviceType: String; var controlURL: String }
 
@@ -208,14 +208,14 @@ struct DeviceDescription {
     var modelName: String?
     var services: [Service] = []
 
-    /// Preferisce WANIPConnection, poi WANPPPConnection.
+    /// Prefers WANIPConnection, then WANPPPConnection.
     var wanService: Service? {
         services.first { $0.serviceType.contains("WANIPConnection") }
             ?? services.first { $0.serviceType.contains("WANPPPConnection") }
     }
 
-    /// Parsing a scansione di stringhe (niente libxml2): gira anche nel helper root
-    /// su dati che arrivano dalla rete, quindi deve essere semplice e sicuro sulla memoria.
+    /// String-scanning parser (no libxml2): it also runs in the root helper
+    /// on data coming from the network, so it must be simple and memory-safe.
     static func parse(_ xml: String) -> DeviceDescription {
         var d = DeviceDescription()
         d.friendlyName = UPnPInspector.tagValue("friendlyName", in: xml)?.nonEmpty

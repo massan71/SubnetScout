@@ -6,7 +6,7 @@ import Testing
     @Test func parsesHostsPortsScriptsAndOS() throws {
         let run = try NmapXMLParser.parse(Data(Fixtures.sampleXML.utf8))
         #expect(run.version == "7.95")
-        #expect(run.hosts.count == 3, "l'host 'down' va escluso")
+        #expect(run.hosts.count == 3, "the 'down' host is excluded")
 
         let router = try #require(run.hosts.first { $0.ip == "10.0.1.1" })
         #expect(router.mac == "BC:24:11:00:00:01")
@@ -67,7 +67,7 @@ import Testing
     @Test func riskScoreAndGrade() {
         let findings = AuditEngine.audit(hosts, now: now)
         let risk = RiskSummary(hosts: hosts, findings: findings)
-        // NAS = 68 (host peggiore) + (router 47 + VNC 40) / 10
+        // NAS = 68 (worst host) + (router 47 + VNC 40) / 10
         #expect(risk.hostScores["10.0.1.20"] == 68)
         #expect(risk.score == 76)
         #expect(risk.grade == "F")
@@ -85,7 +85,7 @@ import Testing
         #expect(ScanProfile.quick.arguments(privileged: false).contains("-F"))
     }
 
-    /// Con il nmap protetto (installer ufficiale) la scansione veloce deve davvero analizzare 100 porte.
+    /// With the protected nmap (official installer) the quick scan must really probe 100 ports.
     @Test(.enabled(if: FileManager.default.fileExists(atPath: TrustedNmap.adoptedRoot + "/bin/nmap")))
     func quickProfileWorksWithOfficialNmap() async throws {
         let n = try TrustedNmap.check(TrustedNmap.adoptedRoot + "/bin/nmap")
@@ -172,7 +172,7 @@ import Testing
         if case .failure(let p) = TrustedNmap.resolve(candidates: ["/opt/homebrew/bin/nmap"]) {
             #expect(p.localizedDescription.contains("is not owned by root"))
         } else {
-            Issue.record("Homebrew nmap non deve risultare affidabile")
+            Issue.record("Homebrew nmap must not be trusted")
         }
     }
 
@@ -189,7 +189,7 @@ import Testing
 
     @Test(.enabled(if: FileManager.default.fileExists(atPath: appNmap)))
     func nmapAppInApplicationsIsRejectedButParsed() throws {
-        // /Applications è scrivibile dal gruppo admin: non affidabile sul posto.
+        // /Applications is writable by the admin group: not trusted in place.
         #expect(throws: TrustedNmap.Problem.untrustedPath("/Applications")) {
             try TrustedNmap.checkBinary(Self.appNmap)
         }
@@ -198,7 +198,7 @@ import Testing
         #expect(info.dylibs.contains("@rpath/libssl.3.dylib"))
     }
 
-    /// Se il helper ha già creato la copia protetta, deve risultare affidabile (incluse le librerie @rpath).
+    /// If the helper already created the protected copy, it must be trusted (including @rpath libraries).
     @Test(.enabled(if: FileManager.default.fileExists(atPath: TrustedNmap.adoptedRoot + "/bin/nmap")))
     func adoptedCopyIsTrusted() throws {
         let r = try TrustedNmap.check(TrustedNmap.adoptedRoot + "/bin/nmap")
@@ -212,7 +212,7 @@ import Testing
     }
 }
 
-/// Esegue nmap davvero, ma solo contro 127.0.0.1. Saltato se nmap non è installato.
+/// Really runs nmap, but only against 127.0.0.1. Skipped if nmap is not installed.
 @Suite struct IntegrationTests {
     @Test(.enabled(if: NmapLocator.find() != nil)) func quickScanOfLocalhost() async throws {
         let engine = ScanEngine(nmapPath: NmapLocator.find()!)

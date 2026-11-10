@@ -1,16 +1,16 @@
 import Foundation
 import dnssd
 
-/// Informazioni annunciate da un dispositivo via Bonjour/mDNS.
+/// Information a device announces over Bonjour/mDNS.
 public struct BonjourDevice: Codable, Hashable, Sendable {
     public var ip: String
-    /// Nomi delle istanze (es. «HP LaserJet MFP M139w (Soggiorno)», «Cucina»).
+    /// Instance names (e.g. "HP LaserJet MFP M139w (Living room)", "Kitchen").
     public var names: [String]
-    /// Host .local (es. «hp-laserjet.local.»).
+    /// .local host (e.g. "hp-laserjet.local.").
     public var hostname: String?
-    /// Tipi di servizio (es. «_ipp._tcp», «_airplay._tcp»).
+    /// Service types (e.g. "_ipp._tcp", "_airplay._tcp").
     public var services: [String]
-    /// Modello dai record TXT (model, md, ty, product…).
+    /// Model from the TXT records (model, md, ty, product…).
     public var model: String?
 
     public init(ip: String, names: [String] = [], hostname: String? = nil, services: [String] = [], model: String? = nil) {
@@ -21,24 +21,24 @@ public struct BonjourDevice: Codable, Hashable, Sendable {
         self.model = model
     }
 
-    /// Il nome più descrittivo: preferisce quelli di stampanti/AirPlay a quelli tecnici.
+    /// The most descriptive name: prefers printer/AirPlay names over technical ones.
     public var bestName: String? {
         let readable = names.filter { !$0.isEmpty && !Self.looksGenerated($0) }
         return readable.min { $0.count < $1.count } ?? model
     }
 
-    /// Nomi generati automaticamente: solo esadecimale, oppure con un identificativo lungo.
+    /// Auto-generated names: hex only, or with a long identifier.
     static func looksGenerated(_ s: String) -> Bool {
         if s.allSatisfy({ $0.isHexDigit || $0 == "-" || $0 == ":" }) { return true }
         return s.range(of: "[0-9a-fA-F]{12,}", options: .regularExpression) != nil
     }
 }
 
-/// Scoperta DNS-SD tramite mDNSResponder (l'API Bonjour di sistema): nessuna
-/// connessione verso i dispositivi e nessun parsing di pacchetti fatto da noi.
-/// Nell'app può essere bloccata dal permesso «Rete locale»; nel helper no.
+/// DNS-SD discovery through mDNSResponder (the system Bonjour API): no
+/// connections to the devices and no packet parsing of our own.
+/// In the app it can be blocked by the Local Network permission; in the helper it cannot.
 public enum BonjourScanner {
-    /// Tipi comuni in una rete domestica o di ufficio.
+    /// Common types on a home or office network.
     public static let serviceTypes = [
         "_device-info._tcp", "_http._tcp", "_https._tcp", "_ipp._tcp", "_ipps._tcp", "_printer._tcp",
         "_pdl-datastream._tcp", "_uscan._tcp", "_scanner._tcp", "_airplay._tcp", "_raop._tcp",
@@ -69,13 +69,13 @@ public enum BonjourScanner {
         }
     }
 
-    // MARK: Stato (accesso solo dalla coda seriale)
+    // MARK: State (accessed only from the serial queue)
 
     final class Collector: @unchecked Sendable {
         let queue = DispatchQueue(label: "subnetscout.bonjour")
         var refs: [DNSServiceRef] = []
         var devices: [String: BonjourDevice] = [:]
-        /// Servizi risolti in attesa dell'indirizzo, per host .local.
+        /// Resolved services waiting for an address, per .local host.
         var pending: [String: [(name: String, type: String, model: String?)]] = [:]
         var resolvedHosts: [String: [String]] = [:]
         var seen = Set<String>()
@@ -94,7 +94,7 @@ public enum BonjourScanner {
         }
     }
 
-    /// Valori utili dai record TXT.
+    /// Useful values from the TXT records.
     static func model(fromTXT txt: [String: String]) -> String? {
         for key in ["product", "ty", "md", "model", "usb_MDL", "modelName"] {
             if let v = txt[key]?.trimmingCharacters(in: CharacterSet(charactersIn: "() ")), !v.isEmpty { return v }
@@ -102,7 +102,7 @@ public enum BonjourScanner {
         return nil
     }
 
-    /// Record TXT in formato DNS: sequenza di stringhe con lunghezza (≤ 255) "chiave=valore".
+    /// DNS-format TXT record: a sequence of length-prefixed (≤ 255) "key=value" strings.
     static func parseTXT(_ ptr: UnsafePointer<UInt8>?, length: Int) -> [String: String] {
         guard let ptr, length > 0 else { return [:] }
         var out: [String: String] = [:]
@@ -121,9 +121,9 @@ public enum BonjourScanner {
     }
 }
 
-// MARK: - Callback C (nessuna cattura: il contesto arriva come puntatore)
+// MARK: - C callbacks (no captures: the context arrives as a pointer)
 
-/// Contesto di una risoluzione: a quale servizio si riferisce la risposta.
+/// Context of a resolution: which service the reply refers to.
 final class ResolveContext {
     unowned let collector: BonjourScanner.Collector
     let name: String
@@ -141,7 +141,7 @@ private let browseReply: DNSServiceBrowseReply = { _, flags, ifIndex, err, name,
     let instance = String(cString: name), regtype = String(cString: type)
     guard c.seen.insert("\(instance)|\(regtype)").inserted else { return }
     let rc = ResolveContext(c, name: instance, type: regtype)
-    c.contexts.append(rc)   // tenuto in vita fino alla fine della scoperta
+    c.contexts.append(rc)   // kept alive until the end of the discovery
     var ref: DNSServiceRef?
     if DNSServiceResolve(&ref, 0, ifIndex, name, type, domain, resolveReply,
                          Unmanaged.passUnretained(rc).toOpaque()) == kDNSServiceErr_NoError, let ref {
@@ -185,7 +185,7 @@ private let addrReply: DNSServiceGetAddrInfoReply = { _, _, _, err, host, addres
     c.add(ip: ip, host: hostName, entries: c.pending[hostName] ?? [])
 }
 
-/// "Stampante\032HP\.lan" → "Stampante HP.lan" (escape decimali e backslash del DNS).
+/// "Printer\032HP\.lan" → "Printer HP.lan" (DNS decimal escapes and backslashes).
 func unescapeDNS(_ s: String) -> String {
     var out = ""
     var it = Array(s.unicodeScalars)[...]

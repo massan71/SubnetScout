@@ -1,39 +1,39 @@
 #!/bin/bash
-# Compila, verifica e pubblica una release di SubnetScout su GitHub.
+# Builds, verifies and publishes a SubnetScout release on GitHub.
 #
-#   scripts/release.sh <versione> <note.md> [--yes]
+#   scripts/release.sh <version> <notes.md> [--yes]
 #
-#   <versione>  es. 0.1.0 (il tag sarà v<versione>)
-#   <note.md>   note di rilascio («Novità»); istruzioni di installazione e
-#               SHA-256 dello zip vengono aggiunte automaticamente
-#   --yes       pubblica senza chiedere conferma
+#   <version>   e.g. 0.1.0 (the tag will be v<version>)
+#   <notes.md>  release notes ("What's new"); install instructions and the
+#               SHA-256 of the zip are appended automatically
+#   --yes       publish without asking for confirmation
 #
-# Passi: controlla il repository, imposta la versione (build + 1) in Info.plist,
-# compila il bundle universale con scripts/bundle.sh, crea lo zip senza
-# attributi Finder/iCloud, verifica l'app estratta (firma, architetture,
-# versione, helper), poi (dopo conferma) fa commit, tag, push e crea la
-# release su GitHub. Se un controllo fallisce non viene pubblicato nulla.
+# Steps: checks the repository, sets the version (build + 1) in Info.plist,
+# builds the universal bundle with scripts/bundle.sh, creates the zip without
+# Finder/iCloud attributes, verifies the unzipped app (signature, architectures,
+# version, helper), then (after confirmation) commits, tags, pushes and creates the
+# GitHub release. If a check fails nothing is published.
 #
-# Se massan71/homebrew-tap è clonato accanto a questo repository (o in
-# $HOMEBREW_TAP_DIR), aggiorna anche il cask subnetscout e lo pubblica.
+# If massan71/homebrew-tap is cloned next to this repository (or in
+# $HOMEBREW_TAP_DIR), it also updates and publishes the subnetscout cask.
 #
-# Facoltativo: RELEASE_COMMIT_TRAILER viene aggiunto al messaggio di commit.
+# Optional: RELEASE_COMMIT_TRAILER is appended to the commit message.
 
 set -euo pipefail
 
 RESTORE_ON_EXIT=0
 die() {
-  echo "errore: $*" >&2
-  # exit non attiva il trap ERR: ripristina qui la versione se era già stata cambiata
-  [[ "$RESTORE_ON_EXIT" == 1 ]] && git checkout -q -- Resources/Info.plist && echo "Modifica di versione annullata." >&2
+  echo "error: $*" >&2
+  # exit does not trigger the ERR trap: restore the version here if it was already changed
+  [[ "$RESTORE_ON_EXIT" == 1 ]] && git checkout -q -- Resources/Info.plist && echo "Version change reverted." >&2
   exit 1
 }
 
 VERSION="${1:-}"
 NOTES="${2:-}"
 YES="${3:-}"
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || die "uso: scripts/release.sh <versione> <note.md> [--yes]"
-[[ -f "$NOTES" ]] || die "file delle note non trovato: $NOTES"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || die "usage: scripts/release.sh <version> <notes.md> [--yes]"
+[[ -f "$NOTES" ]] || die "notes file not found: $NOTES"
 NOTES="$(cd "$(dirname "$NOTES")" && pwd)/$(basename "$NOTES")"
 TAG="v$VERSION"
 
@@ -42,65 +42,65 @@ cd "$ROOT"
 PLIST="Resources/Info.plist"
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 
-# --- Controlli sul repository -----------------------------------------------
-command -v gh >/dev/null || die "GitHub CLI (gh) non installata"
-gh auth status >/dev/null 2>&1 || die "gh non è autenticato (gh auth login)"
-[[ "$(git branch --show-current)" == "main" ]] || die "non sei su main"
-[[ -z "$(git status --porcelain)" ]] || die "ci sono modifiche non committate"
+# --- Repository checks ------------------------------------------------------
+command -v gh >/dev/null || die "GitHub CLI (gh) is not installed"
+gh auth status >/dev/null 2>&1 || die "gh is not authenticated (gh auth login)"
+[[ "$(git branch --show-current)" == "main" ]] || die "not on main"
+[[ -z "$(git status --porcelain)" ]] || die "there are uncommitted changes"
 git fetch -q origin
-[[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]] || die "main non è allineato con origin/main"
-git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "il tag $TAG esiste già"
-git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1 && die "il tag $TAG esiste già su GitHub"
+[[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]] || die "main is not in sync with origin/main"
+git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "tag $TAG already exists"
+git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1 && die "tag $TAG already exists on GitHub"
 TAP_DIR="${HOMEBREW_TAP_DIR:-$ROOT/../homebrew-tap}"
 CASK="$TAP_DIR/Casks/subnetscout.rb"
 if [[ -f "$CASK" && -n "$(git -C "$TAP_DIR" status --porcelain)" ]]; then
-  die "il tap Homebrew $TAP_DIR ha modifiche non committate"
+  die "the Homebrew tap $TAP_DIR has uncommitted changes"
 fi
 
-# --- Versione ----------------------------------------------------------------
+# --- Version -----------------------------------------------------------------
 OLD_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")"
 BUILD=$((OLD_BUILD + 1))
 restore() { git checkout -q -- "$PLIST"; }
-trap 'echo "Interrotto: modifica di versione annullata." >&2; restore' ERR INT
+trap 'echo "Interrupted: version change reverted." >&2; restore' ERR INT
 RESTORE_ON_EXIT=1
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $BUILD" "$PLIST"
-echo "Versione $VERSION (build $BUILD)"
+echo "Version $VERSION (build $BUILD)"
 
-# --- Test e build ------------------------------------------------------------
-echo "Test…"
-swift test --skip IntegrationTests -q >/dev/null 2>&1 || die "i test non passano (swift test)"
-echo "Build universale…"
+# --- Tests and build --------------------------------------------------------
+echo "Tests…"
+swift test --skip IntegrationTests -q >/dev/null 2>&1 || die "tests are failing (swift test)"
+echo "Universal build…"
 scripts/bundle.sh >/dev/null
 
 OUT="build/release"
 rm -rf "$OUT"
 mkdir -p "$OUT/stage"
-# Gli attributi estesi di Finder/iCloud invalidano la firma: si copia senza.
+# Finder/iCloud extended attributes invalidate the signature: copy without them.
 ditto --norsrc --noextattr --noacl build/SubnetScout.app "$OUT/stage/SubnetScout.app"
 ZIP="$OUT/SubnetScout-$VERSION.zip"
 ditto -c -k --norsrc --noextattr --keepParent "$OUT/stage/SubnetScout.app" "$ZIP"
 
-# --- Verifica dell'app estratta ---------------------------------------------
+# --- Verify the unzipped app -------------------------------------------------
 CHECK="$(mktemp -d)"
 ditto -x -k "$ZIP" "$CHECK"
 APP="$CHECK/SubnetScout.app"
-codesign --verify --deep --strict "$APP" || die "verifica della firma fallita"
+codesign --verify --deep --strict "$APP" || die "signature verification failed"
 for bin in SubnetScout SubnetScoutHelper; do
   ARCHS="$(lipo -archs "$APP/Contents/MacOS/$bin")"
-  [[ "$ARCHS" == *arm64* && "$ARCHS" == *x86_64* ]] || die "$bin non è universale: $ARCHS"
+  [[ "$ARCHS" == *arm64* && "$ARCHS" == *x86_64* ]] || die "$bin is not universal: $ARCHS"
 done
 [[ "$(codesign -dv "$APP/Contents/MacOS/SubnetScoutHelper" 2>&1 | grep '^Identifier=')" == "Identifier=net.sangalli.SubnetScout.helper" ]] \
-  || die "identificatore del helper errato"
-[[ -f "$APP/Contents/Library/LaunchDaemons/net.sangalli.SubnetScout.helper.plist" ]] || die "plist del helper mancante"
-[[ -f "$APP/Contents/Resources/AppIcon.icns" ]] || die "icona mancante"
+  || die "wrong helper identifier"
+[[ -f "$APP/Contents/Library/LaunchDaemons/net.sangalli.SubnetScout.helper.plist" ]] || die "helper plist missing"
+[[ -f "$APP/Contents/Resources/AppIcon.icns" ]] || die "icon missing"
 APP_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
-[[ "$APP_VERSION" == "$VERSION" ]] || die "l'app riporta la versione $APP_VERSION"
+[[ "$APP_VERSION" == "$VERSION" ]] || die "the app reports version $APP_VERSION"
 rm -rf "$CHECK"
 SHA="$(shasum -a 256 "$ZIP" | cut -d' ' -f1)"
-echo "Verificato: firma, arm64 + x86_64 (app e helper), helper, icona, versione $APP_VERSION"
+echo "Verified: signature, arm64 + x86_64 (app and helper), helper, icon, version $APP_VERSION"
 echo "$ZIP ($(du -h "$ZIP" | cut -f1)) SHA-256 $SHA"
 
-# --- Note di rilascio --------------------------------------------------------
+# --- Release notes -----------------------------------------------------------
 FULL_NOTES="$OUT/notes.md"
 {
   cat "$NOTES"
@@ -124,10 +124,10 @@ SHA-256 of \`SubnetScout-$VERSION.zip\`:
 EOF
 } > "$FULL_NOTES"
 
-# --- Pubblicazione -----------------------------------------------------------
+# --- Publish -----------------------------------------------------------------
 if [[ "$YES" != "--yes" ]]; then
-  read -r -p "Commit, tag e pubblicazione di $TAG su GitHub? [s/N] " answer
-  [[ "$answer" == "s" || "$answer" == "S" || "$answer" == "y" ]] || { restore; echo "Non pubblicato; versione ripristinata."; exit 1; }
+  read -r -p "Commit, tag and publish $TAG on GitHub? [y/N] " answer
+  [[ "$answer" == "y" || "$answer" == "Y" ]] || { restore; echo "Not published; version restored."; exit 1; }
 fi
 trap - ERR INT
 RESTORE_ON_EXIT=0
@@ -140,24 +140,24 @@ git push -q origin main
 git push -q origin "$TAG"
 gh release create "$TAG" "$ZIP" --title "SubnetScout $VERSION" --notes-file "$FULL_NOTES" --verify-tag
 
-# Verifica che GitHub abbia lo stesso file
+# Check that GitHub has the same file
 REMOTE_SHA="$(gh release view "$TAG" --json assets --jq '.assets[0].digest' | sed 's/^sha256://')"
-[[ "$REMOTE_SHA" == "$SHA" ]] || die "il checksum del file caricato è diverso: $REMOTE_SHA"
-echo "Pubblicata $TAG: $(gh release view "$TAG" --json url --jq .url)"
+[[ "$REMOTE_SHA" == "$SHA" ]] || die "the checksum of the uploaded file differs: $REMOTE_SHA"
+echo "Published $TAG: $(gh release view "$TAG" --json url --jq .url)"
 
 # --- Cask Homebrew -----------------------------------------------------------
-# Aggiorna massan71/homebrew-tap così `brew upgrade --cask subnetscout` trova la nuova versione.
+# Updates massan71/homebrew-tap so that `brew upgrade --cask subnetscout` finds the new version.
 if [[ -f "$CASK" ]]; then
   git -C "$TAP_DIR" pull -q --ff-only
   sed -i '' -E "s/^  version \"[^\"]*\"/  version \"$VERSION\"/; s/^  sha256 \"[^\"]*\"/  sha256 \"$SHA\"/" "$CASK"
   grep -q "version \"$VERSION\"" "$CASK" && grep -q "sha256 \"$SHA\"" "$CASK" \
-    || { echo "attenzione: impossibile aggiornare $CASK, aggiornalo a mano" >&2; git -C "$TAP_DIR" checkout -q -- Casks/subnetscout.rb; exit 0; }
+    || { echo "warning: could not update $CASK, update it by hand" >&2; git -C "$TAP_DIR" checkout -q -- Casks/subnetscout.rb; exit 0; }
   ruby -c "$CASK" >/dev/null
   CASK_MESSAGE="Update SubnetScout to $VERSION"
   [[ -n "${RELEASE_COMMIT_TRAILER:-}" ]] && CASK_MESSAGE="$CASK_MESSAGE"$'\n\n'"$RELEASE_COMMIT_TRAILER"
   git -C "$TAP_DIR" commit -q -m "$CASK_MESSAGE" -- Casks/subnetscout.rb
   git -C "$TAP_DIR" push -q
-  echo "Cask Homebrew aggiornato: brew upgrade --cask subnetscout"
+  echo "Homebrew cask updated: brew upgrade --cask subnetscout"
 else
-  echo "Tap Homebrew non trovato in $TAP_DIR: cask non aggiornato"
+  echo "Homebrew tap not found in $TAP_DIR: cask not updated"
 fi

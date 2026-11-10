@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import ScanKit
 
-/// Risponde alle richieste NVD con un JSON fisso e conta le chiamate.
+/// Answers NVD requests with a fixed JSON and counts the calls.
 final class FakeNVD: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var requests: [URLRequest] = []
     nonisolated(unsafe) static var body = Data()
@@ -41,9 +41,9 @@ let nvdSample = """
         #expect(CPE.nvdName(fromNmap: "cpe:/a:openbsd:openssh:9.3") == "cpe:2.3:a:openbsd:openssh:9.3:*:*:*:*:*:*:*")
         #expect(CPE.nvdName(fromNmap: "cpe:/a:openbsd:openssh:10.2p1") == "cpe:2.3:a:openbsd:openssh:10.2:p1:*:*:*:*:*:*")
         #expect(CPE.nvdName(fromNmap: "cpe:/a:lighttpd:lighttpd:1.4.35") == "cpe:2.3:a:lighttpd:lighttpd:1.4.35:*:*:*:*:*:*:*")
-        #expect(CPE.nvdName(fromNmap: "cpe:/o:linux:linux_kernel") == nil, "senza versione non si interroga")
+        #expect(CPE.nvdName(fromNmap: "cpe:/o:linux:linux_kernel") == nil, "no version, no query")
         #expect(CPE.nvdName(fromNmap: "cpe:/a:thekelleys:dnsmasq:unknown") == nil)
-        #expect(CPE.nvdName(fromNmap: "cpe:/a:evil:x:1.0&foo=bar") == nil, "caratteri non ammessi")
+        #expect(CPE.nvdName(fromNmap: "cpe:/a:evil:x:1.0&foo=bar") == nil, "characters not allowed")
         #expect(CPE.label("cpe:2.3:a:openbsd:openssh:10.2:p1:*:*:*:*:*:*") == "openssh 10.2p1")
     }
 
@@ -66,7 +66,7 @@ let nvdSample = """
         #expect(entries[0].summary == "ssh-agent PKCS#11 RCE.")
         #expect(entries[0].subnetScoutSeverity == .critical)
         #expect(entries[1].subnetScoutSeverity == .medium)
-        // Una CVE sfruttata attivamente è almeno «Alta» anche con CVSS basso.
+        // An actively exploited CVE is at least "High" even with a low CVSS.
         let kevLow = CVEEntry(id: "x", cvss: 4.3, severity: "MEDIUM", summary: "", published: nil, knownExploited: true)
         #expect(kevLow.subnetScoutSeverity == .high)
     }
@@ -95,15 +95,15 @@ let nvdSample = """
 
         let first = try await client.lookup([cpe, cpe])
         #expect(first[cpe]?.count == 2)
-        #expect(FakeNVD.requests.count == 1, "CPE duplicati interrogati una volta")
+        #expect(FakeNVD.requests.count == 1, "duplicate CPEs queried once")
         let req = try #require(FakeNVD.requests.first)
         #expect(req.value(forHTTPHeaderField: "apiKey") == "test-key")
         let query = URLComponents(url: req.url!, resolvingAgainstBaseURL: false)!.queryItems!.map(\.name)
-        #expect(Set(query) == ["virtualMatchString", "noRejected"], "nessun altro dato oltre al CPE")
+        #expect(Set(query) == ["virtualMatchString", "noRejected"], "no data other than the CPE")
 
         let again = try await NVDClient(options: .init(cacheDirectory: dir), session: FakeNVD.session()).lookup([cpe])
         #expect(again[cpe]?.count == 2)
-        #expect(FakeNVD.requests.count == 1, "la seconda volta risponde la cache")
+        #expect(FakeNVD.requests.count == 1, "the second time the cache answers")
     }
 
     @Test func notFoundMeansNoCVEs() async throws {
@@ -117,7 +117,7 @@ let nvdSample = """
         #expect(r.values.first?.isEmpty == true)
     }
 
-    /// Facoltativo, contro NVD reale: SUBNETSCOUT_LIVE=1 swift test --filter liveNVD
+    /// Optional, against the real NVD: SUBNETSCOUT_LIVE=1 swift test --filter liveNVD
     @Test(.enabled(if: ProcessInfo.processInfo.environment["SUBNETSCOUT_LIVE"] == "1"))
     func liveNVD() async throws {
         let dir = FileManager.default.temporaryDirectory.appending(path: "nvd-live-\(UUID().uuidString)")

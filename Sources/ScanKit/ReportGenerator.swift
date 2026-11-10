@@ -1,6 +1,6 @@
 import Foundation
 
-/// Report esportabili: HTML autonomo (stampabile in PDF dal browser) e CSV.
+/// Exportable reports: self-contained HTML (printable to PDF from the browser) and CSV.
 public enum ReportGenerator {
 
     // MARK: - HTML
@@ -53,9 +53,11 @@ public enum ReportGenerator {
             body += "</ul></section>"
         }
 
+        body += "<section><h2>Network map</h2>\(mapSVG(r))<p class=\"muted\">Devices grouped by type around the gateway. Links are logical, not physical cabling.</p></section>"
+
         if let net = r.network { body += networkSection(net) }
 
-        // Problemi
+        // Findings
         body += "<section><h2>Issues found (\(r.findings.count))</h2>"
         if r.findings.isEmpty {
             body += r.profile.scansPorts
@@ -78,7 +80,7 @@ public enum ReportGenerator {
         }
         body += "</section>"
 
-        // Vulnerabilità note
+        // Known vulnerabilities
         if let vulns = r.vulnerabilities {
             var rows = ""
             for h in r.hosts {
@@ -100,7 +102,7 @@ public enum ReportGenerator {
             body += "<section><h2>Known vulnerabilities (CVE)</h2><p class=\"muted\">Lookup not completed: \(esc(err))</p></section>"
         }
 
-        // Inventario
+        // Inventory
         body += """
         <section><h2>Device inventory</h2>
         <table><thead><tr><th>Device</th><th>IP</th><th>MAC</th><th>Vendor</th><th>Type</th><th>Open ports</th><th>Risk</th></tr></thead><tbody>
@@ -119,7 +121,7 @@ public enum ReportGenerator {
         }
         body += "</tbody></table></section>"
 
-        // Appendice tecnica
+        // Technical appendix
         if r.profile.scansPorts {
             body += "<section class=\"appendix\"><h2>Appendix: services by device</h2>"
             for h in r.hosts where !h.openPorts.isEmpty {
@@ -148,6 +150,44 @@ public enum ReportGenerator {
         <style>\(css)</style></head>
         <body><main>\(body)</main></body></html>
         """
+    }
+
+    /// Inline SVG of the network map (same geometry as the app's Map tab).
+    static func mapSVG(_ r: ScanResult) -> String {
+        let map = NetworkMap(result: r)
+        let scale = 230.0, size = 1000.0, c = size / 2
+        func px(_ x: Double) -> String { String(format: "%.1f", c + x * scale) }
+        func py(_ y: Double) -> String { String(format: "%.1f", c - y * scale) }
+        func color(_ n: NetworkMap.Node) -> String {
+            switch n.severity {
+            case .critical?: "var(--s4)"
+            case .high?: "var(--s3)"
+            case .medium?: "var(--s2)"
+            case .low?: "var(--s1)"
+            default: r.profile.scansPorts ? "#16a34a" : "var(--s0)"
+            }
+        }
+        var svg = "<svg class=\"map\" viewBox=\"0 0 \(Int(size)) \(Int(size))\" role=\"img\" aria-label=\"Network map\">"
+        for n in map.nodes {
+            let relevant = (n.severity ?? .info) >= .medium
+            svg += "<line x1=\"\(px(0))\" y1=\"\(py(0))\" x2=\"\(px(n.x))\" y2=\"\(py(n.y))\" stroke=\"\(relevant ? color(n) : "var(--line)")\" stroke-width=\"\(relevant ? 2 : 1)\"/>"
+        }
+        for g in map.groups {
+            svg += "<text x=\"\(px(g.labelX))\" y=\"\(py(g.labelY))\" class=\"glabel\">\(esc(g.kind.label)) (\(g.count))</text>"
+        }
+        func circle(_ n: NetworkMap.Node, radius: Double) -> String {
+            let relevant = (n.severity ?? .info) >= .medium
+            let label = n.isLocalMachine ? "\(n.label) (this Mac)" : n.label
+            var out = "<g><title>\(esc(label)) · \(esc(n.ip)) · \(esc(n.kind.label))</title>"
+            out += "<circle cx=\"\(px(n.x))\" cy=\"\(py(n.y))\" r=\"\(radius)\" fill=\"var(--card)\" stroke=\"\(color(n))\" stroke-width=\"4\"/>"
+            if relevant || n.isGateway || n.isUPnPGateway {
+                out += "<text x=\"\(px(n.x))\" y=\"\(String(format: "%.1f", c - n.y * scale + radius + 16))\" class=\"nlabel\">\(esc(String(label.prefix(28))))</text>"
+            }
+            return out + "</g>"
+        }
+        for n in map.nodes { svg += circle(n, radius: 13) }
+        if let center = map.center { svg += circle(center, radius: 22) }
+        return svg + "</svg>"
     }
 
     static func networkSection(_ n: NetworkContext) -> String {
@@ -194,8 +234,8 @@ public enum ReportGenerator {
         return s
     }
 
-    /// Il report contiene testi presi dalla rete (banner, titoli web, descrizioni CVE):
-    /// sono già sanificati, ma la CSP impedisce comunque script e risorse esterne.
+    /// The report contains text taken from the network (banners, web titles, CVE descriptions):
+    /// it is already sanitized, but the CSP blocks scripts and external resources anyway.
     static let csp = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"
 
     static let css = """
@@ -226,13 +266,16 @@ public enum ReportGenerator {
     table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:block;overflow-x:auto}
     th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
     th{font-size:12px;text-transform:uppercase;color:var(--muted);background:var(--code)}td.ports{font-size:13px;max-width:260px}
+    svg.map{width:100%;max-width:760px;display:block;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
+    svg.map text{fill:var(--fg);font:13px -apple-system,BlinkMacSystemFont,sans-serif;text-anchor:middle}
+    svg.map .glabel{fill:var(--muted);font-weight:600}
     .appendix h3{margin:22px 0 8px}table.kv th{width:240px;text-transform:none;font-size:14px}footer{margin-top:40px;font-size:12px}
     @media print{body{background:#fff}main{padding:0}.finding,table{border-color:#ccc}h2{break-after:avoid}}
     """
 
     // MARK: - CSV
 
-    /// Una riga per porta aperta (o una riga per host se non ne ha).
+    /// One row per open port (or one row per host if it has none).
     public static func csv(for r: ScanResult) -> String {
         var lines = ["ip,hostname,mac,vendor,type,port,service,product,issues"]
         for h in r.hosts {
@@ -251,7 +294,7 @@ public enum ReportGenerator {
     }
 
     static func csvField(_ s: String) -> String {
-        // Prefisso con apostrofo contro la formula injection in Excel/Numbers.
+        // Apostrophe prefix against formula injection in Excel/Numbers.
         var v = s
         if let first = v.first, "=+-@".contains(first) { v = "'" + v }
         if v.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) {

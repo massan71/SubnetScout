@@ -6,7 +6,7 @@ public struct LocalInterface: Hashable, Sendable, Identifiable {
     public var ip: String
     public var netmask: String
     public var prefixLength: Int
-    /// Rete in notazione CIDR, es. "192.168.1.0/24".
+    /// Network in CIDR notation, e.g. "192.168.1.0/24".
     public var cidr: String
 
     public var id: String { "\(name)-\(ip)" }
@@ -14,7 +14,7 @@ public struct LocalInterface: Hashable, Sendable, Identifiable {
 }
 
 public enum NetworkInfo {
-    /// Interfacce IPv4 attive (escluso loopback), con en0/en1 in cima.
+    /// Active IPv4 interfaces (loopback excluded), with en0/en1 first.
     public static func interfaces() -> [LocalInterface] {
         var result: [LocalInterface] = []
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
@@ -32,7 +32,7 @@ public enum NetworkInfo {
             let ip = addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { UInt32(bigEndian: $0.pointee.sin_addr.s_addr) }
             let m = mask.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { UInt32(bigEndian: $0.pointee.sin_addr.s_addr) }
             let prefix = m.nonzeroBitCount
-            // Salta link-local (169.254/16) e interfacce punto-punto /32 (VPN).
+            // Skip link-local (169.254/16) and point-to-point /32 interfaces (VPN).
             guard ip >> 16 != 0xA9FE, prefix < 32 else { continue }
             let network = ip & m
             result.append(LocalInterface(
@@ -50,12 +50,12 @@ public enum NetworkInfo {
         name.hasPrefix("en") ? "0\(name)" : "1\(name)"
     }
 
-    /// Gateway predefinito (`route -n get default`).
+    /// Default gateway (`route -n get default`).
     public static func defaultGateway() -> String? {
         defaultRoute().gateway
     }
 
-    /// Gateway e interfaccia della rotta predefinita.
+    /// Gateway and interface of the default route.
     public static func defaultRoute() -> (gateway: String?, interface: String?) {
         guard let out = try? Shell.run("/sbin/route", ["-n", "get", "default"]) else { return (nil, nil) }
         var gateway: String?, interface: String?
@@ -76,7 +76,7 @@ public enum NetworkInfo {
         public var dnsServers: [String] = []
     }
 
-    /// Dati del lease DHCP dell'interfaccia (`ipconfig getpacket`), senza privilegi.
+    /// DHCP lease data of the interface (`ipconfig getpacket`), no privileges needed.
     public static func dhcpLease(interface: String) -> DHCPLease? {
         guard interface.allSatisfy({ $0.isLetter || $0.isNumber }),
               let out = try? Shell.run("/usr/sbin/ipconfig", ["getpacket", interface]), !out.isEmpty else { return nil }
@@ -97,8 +97,8 @@ public enum NetworkInfo {
                          dnsServers: values("domain_name_server"))
     }
 
-    /// Tabella ARP del Mac: IP → MAC normalizzato (AA:BB:CC:DD:EE:FF).
-    /// Utile quando nmap gira senza root e non riporta gli indirizzi MAC.
+    /// The Mac's ARP table: IP → normalized MAC (AA:BB:CC:DD:EE:FF).
+    /// Useful when nmap runs without root and does not report MAC addresses.
     public static func arpTable() -> [String: String] {
         guard let out = try? Shell.run("/usr/sbin/arp", ["-an"]) else { return [:] }
         var table: [String: String] = [:]

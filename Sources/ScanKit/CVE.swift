@@ -1,17 +1,17 @@
 import Foundation
 import CryptoKit
 
-// MARK: - Modelli
+// MARK: - Models
 
-/// Una vulnerabilità nota (dal database NVD del NIST).
+/// A known vulnerability (from NIST's NVD database).
 public struct CVEEntry: Codable, Hashable, Sendable, Identifiable {
     public var id: String
     public var cvss: Double?
-    /// "CRITICAL", "HIGH", "MEDIUM", "LOW" secondo la metrica più recente disponibile.
+    /// "CRITICAL", "HIGH", "MEDIUM", "LOW" according to the most recent metric available.
     public var severity: String?
     public var summary: String
     public var published: String?
-    /// Presente nel catalogo CISA KEV: sfruttata attivamente.
+    /// Listed in the CISA KEV catalog: actively exploited.
     public var knownExploited: Bool
     public var kevName: String?
 
@@ -28,7 +28,7 @@ public struct CVEEntry: Codable, Hashable, Sendable, Identifiable {
 
     public var url: URL { URL(string: "https://nvd.nist.gov/vuln/detail/\(id)")! }
 
-    /// Gravità SubnetScout: da CVSS; le CVE sfruttate attivamente sono almeno «Alta».
+    /// SubnetScout severity: from CVSS; actively exploited CVEs are at least "High".
     public var subnetScoutSeverity: Severity {
         let base: Severity = switch cvss ?? 0 {
         case 9...: .critical
@@ -44,9 +44,9 @@ public struct CVEEntry: Codable, Hashable, Sendable, Identifiable {
 // MARK: - CPE
 
 public enum CPE {
-    /// Converte un CPE 2.2 di nmap in CPE 2.3 per NVD, solo se ha vendor, prodotto e
-    /// una versione utilizzabile. "cpe:/a:openbsd:openssh:10.2p1" →
-    /// "cpe:2.3:a:openbsd:openssh:10.2:p1:*:*:*:*:*:*" (OpenSSH separa la «portable release»).
+    /// Converts an nmap CPE 2.2 into a CPE 2.3 for NVD, only if it has vendor, product and
+    /// a usable version. "cpe:/a:openbsd:openssh:10.2p1" →
+    /// "cpe:2.3:a:openbsd:openssh:10.2:p1:*:*:*:*:*:*" (OpenSSH splits off the "portable release").
     public static func nvdName(fromNmap cpe: String) -> String? {
         guard cpe.hasPrefix("cpe:/") else { return nil }
         let parts = cpe.dropFirst(5).split(separator: ":", omittingEmptySubsequences: false).map(String.init)
@@ -76,10 +76,10 @@ public enum CPE {
     }
 }
 
-// MARK: - Client NVD
+// MARK: - NVD client
 
-/// Interroga l'API CVE 2.0 di NVD. Viene inviato solo il CPE (prodotto e versione),
-/// mai indirizzi o nomi dei dispositivi. Le risposte restano in cache su disco.
+/// Queries the NVD CVE 2.0 API. Only the CPE (product and version) is sent,
+/// never device addresses or names. Responses are cached on disk.
 public actor NVDClient {
     public struct Options: Sendable {
         public var apiKey: String?
@@ -123,10 +123,10 @@ public actor NVDClient {
         self.session = session
     }
 
-    /// Senza chiave NVD ammette 5 richieste ogni 30 s, con chiave 50.
+    /// Without an NVD key it allows 5 requests every 30 s, with a key 50.
     var minimumInterval: TimeInterval { options.apiKey == nil ? 6.5 : 0.7 }
 
-    /// CVE per ogni CPE (dalla cache quando è recente). `onStatus` riceve «i di n».
+    /// CVEs for each CPE (from the cache when recent). `onStatus` receives "i of n".
     public func lookup(_ cpes: [String], onStatus: @Sendable (Int, Int) -> Void = { _, _ in })
         async throws -> [String: [CVEEntry]] {
         let unique = Array(Set(cpes)).sorted().prefix(options.maxQueries)
@@ -248,15 +248,15 @@ public actor NVDClient {
     }
 }
 
-// MARK: - Problemi
+// MARK: - Findings
 
 public enum CVEAudit {
-    /// CPE 2.3 da interrogare per ogni porta aperta (porta → CPE).
+    /// CPE 2.3 to query for each open port (port → CPE).
     public static func queries(for hosts: [Host]) -> [String] {
         hosts.flatMap { h in h.openPorts.flatMap { ($0.service?.cpes ?? []).compactMap(CPE.nvdName(fromNmap:)) } }
     }
 
-    /// Un problema per servizio vulnerabile (host + porta), con la gravità della CVE peggiore.
+    /// One finding per vulnerable service (host + port), with the severity of the worst CVE.
     public static func findings(hosts: [Host], vulnerabilities: [String: [CVEEntry]]) -> [Finding] {
         var out: [Finding] = []
         for h in hosts {
@@ -286,7 +286,7 @@ public enum CVEAudit {
         return out
     }
 
-    /// CVE di una porta, per la vista di dettaglio.
+    /// CVEs of a port, for the detail view.
     public static func entries(for port: PortInfo, in vulnerabilities: [String: [CVEEntry]]?) -> [CVEEntry] {
         guard let vulnerabilities else { return [] }
         let all = (port.service?.cpes ?? []).compactMap(CPE.nvdName(fromNmap:)).flatMap { vulnerabilities[$0] ?? [] }

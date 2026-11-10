@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import ScanKit
 
-/// Configurazione guidata al primo avvio (riapribile da Aiuto › Configurazione guidata…).
+/// Setup assistant on first launch (can be reopened from Help › Setup Assistant…).
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     let onDone: () -> Void
@@ -63,7 +63,7 @@ struct OnboardingView: View {
         .interactiveDismissDisabled()
     }
 
-    // MARK: Passi
+    // MARK: Steps
 
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 14) {

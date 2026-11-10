@@ -1,17 +1,18 @@
 #!/bin/bash
-# Compila SubnetScout in Release (universale arm64 + x86_64) e crea build/SubnetScout.app
-# con il privileged helper incluso.
+# Builds SubnetScout in Release (universal arm64 + x86_64) and creates build/SubnetScout.app
+# with the privileged helper included.
 #
-#   scripts/bundle.sh            # build + bundle + firma
-#   scripts/bundle.sh --open     # ...e avvia l'app
+#   scripts/bundle.sh            # build + bundle + sign
+#   scripts/bundle.sh --open     # ...and launch the app
 #
-#   SIGN_IDENTITY="Developer ID Application: Nome (TEAMID)" scripts/bundle.sh
-#     firma con Developer ID: il helper accetterà solo client dello stesso team.
+#   SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" scripts/bundle.sh
+#     signs with a Developer ID: the helper will only accept clients from the same team.
 #
-# Senza SIGN_IDENTITY usa il certificato «SubnetScout Code Signing» del portachiavi,
-# se c'è: l'identità dell'app resta la stessa tra una build e l'altra, così il
-# permesso «Rete locale» e l'approvazione del helper non vanno ripetuti, e app e
-# helper si verificano a vicenda tramite il certificato. Altrimenti firma ad-hoc.
+# Without SIGN_IDENTITY it uses the "SubnetScout Code Signing" certificate from the
+# keychain, if present: app and helper then verify each other through the certificate.
+# Otherwise it signs ad hoc. Without a Developer ID, macOS still ties the helper
+# approval and Keychain access to the binary hash, so they are asked again after
+# every new build.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -27,13 +28,13 @@ swift build -c release "${ARCHS[@]}"
 BIN_DIR="$(swift build -c release "${ARCHS[@]}" --show-bin-path)"
 
 APP="build/SubnetScout.app"
-# Il bundle viene assemblato e firmato in una cartella temporanea, poi
-# sincronizzato su quello esistente. Due motivi:
-#  1. NON va cancellato e ricreato, altrimenti macOS lo considera un'altra app e
-#     la registrazione del helper (SMAppService) resta legata al bundle vecchio
+# The bundle is assembled and signed in a temporary folder, then
+# synced onto the existing one. Two reasons:
+#  1. It must NOT be deleted and recreated, otherwise macOS treats it as another app and
+#     the helper registration (SMAppService) stays tied to the old bundle
 #     (launchd: "copy_bundle_path … Invalid or missing Program").
-#  2. In una cartella sincronizzata con iCloud (es. Documents) macOS rimette
-#     com.apple.FinderInfo sul bundle e codesign fallisce ("detritus not allowed").
+#  2. In a folder synced with iCloud (e.g. Documents) macOS puts
+#     com.apple.FinderInfo back on the bundle and codesign fails ("detritus not allowed").
 STAGE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/subnetscout-bundle.XXXXXX")"
 trap 'rm -rf "$STAGE_ROOT"' EXIT
 STAGE="$STAGE_ROOT/SubnetScout.app"
@@ -45,17 +46,17 @@ cp Resources/net.sangalli.SubnetScout.helper.plist "$STAGE/Contents/Library/Laun
 [[ -f Resources/AppIcon.icns ]] && cp Resources/AppIcon.icns "$STAGE/Contents/Resources/" || true
 xattr -cr "$STAGE"
 
-# Prima il helper (con il suo identificatore), poi l'app che lo sigilla.
+# The helper first (with its own identifier), then the app that seals it.
 codesign --force --sign "$SIGN_IDENTITY" --options runtime --timestamp=none \
   --identifier net.sangalli.SubnetScout.helper "$STAGE/Contents/MacOS/SubnetScoutHelper"
 codesign --force --sign "$SIGN_IDENTITY" --options runtime --timestamp=none "$STAGE"
 codesign --verify --strict "$STAGE"
 
-# La firma sta nei file (_CodeSignature e Mach-O): copiandoli resta valida.
+# The signature lives in the files (_CodeSignature and Mach-O): copying them keeps it valid.
 mkdir -p "$APP"
 rsync -a --delete "$STAGE/" "$APP/"
 codesign --verify "$APP"
-echo "✓ $APP (firma: $SIGN_IDENTITY)"
+echo "✓ $APP (signed with: $SIGN_IDENTITY)"
 
 [[ "${1:-}" == "--open" ]] && open "$APP"
 exit 0

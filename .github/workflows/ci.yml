@@ -21,6 +21,6 @@ jobs:
       - name: Build
         run: swift build
 
-      # Senza nmap e senza rete locale: i test che li richiedono si disattivano da soli.
+      # Without nmap and without a local network: the tests that need them disable themselves.
       - name: Test
         run: swift test --skip IntegrationTests

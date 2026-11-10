@@ -1,7 +1,7 @@
 import SwiftUI
 import ScanKit
 
-/// Foundation ha già una classe `Host`: nell'app usiamo sempre quella di ScanKit.
+/// Foundation already has a `Host` class: in the app we always use the ScanKit one.
 typealias Host = ScanKit.Host
 
 extension Severity {
@@ -63,7 +63,7 @@ struct NewBadge: View {
             .padding(.vertical, 1)
             .foregroundStyle(.orange)
             .overlay(Capsule().stroke(.orange, lineWidth: 1))
-            .fixedSize()   // si accorcia il nome del dispositivo, mai il badge
+            .fixedSize()   // the device name gets truncated, never the badge
             .help("Device not marked as known yet")
     }
 }

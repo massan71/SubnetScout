@@ -11,15 +11,15 @@ let package = Package(
         .library(name: "ScanKit", targets: ["ScanKit"]),
     ],
     targets: [
-        // Motore: esecuzione di nmap, parsing XML, audit, diff, report. Nessuna dipendenza UI.
+        // Engine: runs nmap, parses XML, audit, diff, report. No UI dependencies.
         .target(name: "ScanKit"),
-        // App SwiftUI.
+        // SwiftUI app.
         .executableTarget(
             name: "SubnetScout",
             dependencies: ["ScanKit"],
             linkerSettings: [
-                // Incorpora Info.plist nel binario, così anche `swift run` ha
-                // NSLocalNetworkUsageDescription (permesso "Rete locale").
+                // Embeds Info.plist in the binary, so that even `swift run` has
+                // NSLocalNetworkUsageDescription (Local Network permission).
                 .unsafeFlags([
                     "-Xlinker", "-sectcreate",
                     "-Xlinker", "__TEXT",
@@ -28,7 +28,7 @@ let package = Package(
                 ]),
             ]
         ),
-        // Daemon root (SMAppService) che esegue nmap per conto dell'app via XPC.
+        // Root daemon (SMAppService) that runs nmap on behalf of the app over XPC.
         .executableTarget(name: "SubnetScoutHelper", dependencies: ["ScanKit"]),
         .testTarget(name: "ScanKitTests", dependencies: ["ScanKit"]),
     ]

@@ -23,7 +23,7 @@ public enum NmapError: LocalizedError {
 public enum NmapLocator {
     static let candidates = ["/opt/homebrew/bin/nmap", "/usr/local/bin/nmap", "/opt/local/bin/nmap", "/usr/bin/nmap"]
 
-    /// nmap non viene incluso nell'app (licenza NPSL): lo si cerca nei percorsi standard.
+    /// nmap is not bundled with the app (NPSL license): look for it in the standard paths.
     public static func find() -> String? {
         candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
@@ -37,7 +37,7 @@ public enum NmapLocator {
     }
 }
 
-/// Esegue nmap e restituisce l'output XML grezzo.
+/// Runs nmap and returns the raw XML output.
 public struct NmapRunner: Sendable {
     public let nmapPath: String
 
@@ -46,9 +46,9 @@ public struct NmapRunner: Sendable {
     }
 
     /// - Parameters:
-    ///   - privileged: se true, nmap viene lanciato come root tramite la richiesta
-    ///     password standard di macOS (abilita SYN scan, OS detection, UDP, MAC).
-    ///   - onProgress: avanzamento 0…1 (solo in modalità non privilegiata).
+    ///   - privileged: if true, nmap is launched as root through the standard macOS
+    ///     password prompt (enables SYN scan, OS detection, UDP, MAC).
+    ///   - onProgress: progress 0…1 (unprivileged mode only).
     public func run(arguments: [String], targets: [String], privileged: Bool,
                     onProgress: @escaping @Sendable (Double) -> Void = { _ in }) async throws -> Data {
         if privileged {
@@ -57,12 +57,12 @@ public struct NmapRunner: Sendable {
         return try await runDirect(arguments: arguments, targets: targets, onProgress: onProgress)
     }
 
-    // MARK: Esecuzione diretta (utente normale, oppure dentro il helper root)
+    // MARK: Direct execution (normal user, or inside the root helper)
 
-    /// Esegue nmap con l'identità del processo corrente.
+    /// Runs nmap with the identity of the current process.
     /// - Parameters:
-    ///   - environment: se valorizzato sostituisce l'ambiente ereditato (il helper lo azzera).
-    ///   - workingDirectory: directory di lavoro di nmap.
+    ///   - environment: if set, replaces the inherited environment (the helper clears it).
+    ///   - workingDirectory: nmap's working directory.
     public func runDirect(arguments: [String], targets: [String],
                           environment: [String: String]? = nil, workingDirectory: URL? = nil,
                           onProgress: @escaping @Sendable (Double) -> Void) async throws -> Data {
@@ -123,7 +123,7 @@ public struct NmapRunner: Sendable {
         return data
     }
 
-    /// Cerca l'ultimo `percent="12.34"` dei <taskprogress> emessi da --stats-every.
+    /// Finds the last `percent="12.34"` of the <taskprogress> emitted by --stats-every.
     static func progress(in chunk: Data) -> Double? {
         let text = String(decoding: chunk, as: UTF8.self)
         guard let range = text.range(of: "percent=\"", options: .backwards) else { return nil }
@@ -132,14 +132,14 @@ public struct NmapRunner: Sendable {
         return min(1, max(0, value / 100))
     }
 
-    // MARK: Amministratore
+    // MARK: Administrator
 
-    /// Senza helper: `do shell script … with administrator privileges`.
+    /// Without the helper: `do shell script … with administrator privileges`.
     ///
-    /// nmap gira come root in background dentro uno script che lo sorveglia: se
-    /// l'app crea il file di annullamento, oppure se l'app termina (anche per un
-    /// crash), lo script uccide nmap. Così un'interruzione non lascia processi root
-    /// orfani. L'avanzamento si legge dall'XML che nmap scrive man mano.
+    /// nmap runs as root in the background inside a script that watches it: if
+    /// the app creates the cancel file, or if the app exits (even because of a
+    /// crash), the script kills nmap. So an interruption never leaves orphaned root
+    /// processes. Progress is read from the XML that nmap writes as it goes.
     private func runPrivileged(arguments: [String], targets: [String],
                                onProgress: @escaping @Sendable (Double) -> Void) async throws -> Data {
         let tmp = FileManager.default.temporaryDirectory
@@ -163,7 +163,7 @@ public struct NmapRunner: Sendable {
         osa.standardError = osaErr
         osa.standardOutput = FileHandle.nullDevice
 
-        // Avanzamento: legge la coda dell'XML ogni 2 secondi.
+        // Progress: reads the tail of the XML every 2 seconds.
         let poller = Task.detached {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
@@ -178,7 +178,7 @@ public struct NmapRunner: Sendable {
                 do { try osa.run() } catch { cont.resume(throwing: error) }
             }
         } onCancel: {
-            // Lo script root vede il file entro un secondo e termina nmap; osascript poi esce da solo.
+            // The root script sees the file within a second and kills nmap; osascript then exits by itself.
             FileManager.default.createFile(atPath: cancelURL.path, contents: nil)
         }
         try Task.checkCancellation()
@@ -197,7 +197,7 @@ public struct NmapRunner: Sendable {
         return data
     }
 
-    /// Script shell (una riga) eseguito come root.
+    /// Shell script (one line) run as root.
     static func privilegedScript(nmapPath: String, arguments: [String], targets: [String],
                                  xml: String, err: String, cancel: String, appPID: Int32) -> String {
         let argv = [nmapPath] + arguments + ["-oX", xml, "--"] + targets
@@ -227,7 +227,7 @@ public struct NmapRunner: Sendable {
     }
 }
 
-// MARK: - Helper thread-safe
+// MARK: - Thread-safe helpers
 
 private final class ProcessBox: @unchecked Sendable {
     private let process: Process

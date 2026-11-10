@@ -3,7 +3,7 @@ import Security
 import SwiftUI
 import ScanKit
 
-/// Impostazioni della ricerca CVE. La chiave API NVD sta nel Portachiavi.
+/// CVE lookup settings. The NVD API key lives in the Keychain.
 enum CVESettings {
     static let enabledKey = "cveLookupEnabled"
     private static let keychainService = "net.sangalli.SubnetScout.nvd-api-key"
@@ -33,7 +33,7 @@ enum CVESettings {
     }
 }
 
-/// Scheda «Vulnerabilità» delle Impostazioni.
+/// "Vulnerabilities" tab of the Settings.
 struct CVESettingsView: View {
     @AppStorage(CVESettings.enabledKey) private var cveEnabled = false
     @State private var apiKey = ""

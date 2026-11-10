@@ -6,7 +6,7 @@ public struct NmapRun: Sendable {
     public var args: String?
     public var startedAt: Date?
     public var finishedAt: Date?
-    /// Script eseguiti prima/dopo la scansione degli host (es. broadcast-dhcp-discover).
+    /// Scripts run before/after the host scan (e.g. broadcast-dhcp-discover).
     public var runScripts: [ScriptOutput] = []
 }
 
@@ -20,17 +20,17 @@ public enum NmapParseError: LocalizedError {
     }
 }
 
-/// Parser SAX dell'output `-oX` di nmap. Restituisce solo gli host "up".
+/// SAX parser for nmap's `-oX` output. Returns only hosts that are "up".
 public enum NmapXMLParser {
     public static func parse(_ data: Data) throws -> NmapRun {
         let delegate = Delegate()
         let parser = XMLParser(data: data)
         parser.delegate = delegate
-        // L'output -oX contiene un DOCTYPE: niente risoluzione di entità esterne.
+        // The -oX output contains a DOCTYPE: no resolution of external entities.
         parser.shouldResolveExternalEntities = false
         if !parser.parse() {
-            // Una scansione interrotta può lasciare l'XML troncato: se abbiamo
-            // già host completi li teniamo, altrimenti è un errore.
+            // An interrupted scan can leave truncated XML: if we already
+            // have complete hosts we keep them, otherwise it is an error.
             if delegate.hosts.isEmpty {
                 throw NmapParseError.invalidXML(parser.parserError?.localizedDescription ?? "sconosciuto")
             }

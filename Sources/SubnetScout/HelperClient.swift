@@ -2,16 +2,16 @@ import Foundation
 import ServiceManagement
 import ScanKit
 
-/// Stato del privileged helper come lo vede l'app.
+/// State of the privileged helper as the app sees it.
 enum HelperState: Equatable {
-    /// Primo controllo ancora in corso.
+    /// First check still in progress.
     case checking
-    /// L'app non gira dal bundle (es. `swift run`): helper non disponibile.
+    /// The app is not running from the bundle (e.g. `swift run`): helper unavailable.
     case unavailable
     case notInstalled
     case needsApproval
-    /// Registrato e raggiungibile. `problem` è valorizzato se nmap non è eseguibile come root in sicurezza;
-    /// `canAdopt` se /Applications/nmap.app può essere copiato in una posizione protetta.
+    /// Registered and reachable. `problem` is set if nmap cannot safely run as root;
+    /// `canAdopt` if /Applications/nmap.app can be copied to a protected location.
     case ready(nmapPath: String?, problem: String?, canAdopt: Bool)
     case error(String)
 
@@ -63,11 +63,11 @@ enum HelperClient {
         }
     }
 
-    /// Registra il daemon. Al primo giro macOS chiede l'approvazione in
-    /// Impostazioni di Sistema › Generali › Elementi login ed estensioni.
+    /// Registers the daemon. The first time, macOS asks for approval in
+    /// System Settings › General › Login Items & Extensions.
     ///
-    /// Se è già registrato (es. dopo una nuova build con firma diversa, che launchd
-    /// rifiuta con OS_REASON_CODESIGNING) prima annulla la registrazione.
+    /// If it is already registered (e.g. after a new build with a different signature, which launchd
+    /// rejects with OS_REASON_CODESIGNING) it unregisters it first.
     static func install() async throws {
         if service.status == .enabled || service.status == .requiresApproval {
             try? await service.unregister()
@@ -75,7 +75,7 @@ enum HelperClient {
         do {
             try service.register()
         } catch {
-            // "Operation not permitted" = registrato ma in attesa di approvazione.
+            // "Operation not permitted" = registered but waiting for approval.
             if service.status == .requiresApproval { return }
             throw error
         }
@@ -98,7 +98,7 @@ enum HelperClient {
             c.exportedInterface = HelperInterfaces.client()
             c.exportedObject = receiver
         }
-        // Verifichiamo anche noi chi risponde sul servizio Mach.
+        // We also verify who answers on the Mach service.
         c.setCodeSigningRequirement(CodeSigning.requirement(forPeer: HelperConstants.helperIdentifier))
         c.resume()
         return c
@@ -114,7 +114,7 @@ enum HelperClient {
         let c = makeConnection()
         defer { c.invalidate() }
         let box = ConnectionBox(c)
-        // Annullare il task invalida la connessione: l'error handler sblocca l'attesa.
+        // Cancelling the task invalidates the connection: the error handler releases the wait.
         return try await withTaskCancellationHandler { try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Info, Error>) in
             let once = ResumeOnce(cont)
             let proxy = c.remoteObjectProxyWithErrorHandler { once.resume(throwing: HelperError.connection($0.localizedDescription)) }
@@ -128,11 +128,11 @@ enum HelperClient {
     }
 }
 
-// MARK: - Adozione di nmap.app
+// MARK: - Adopting nmap.app
 
 extension HelperClient {
-    /// Chiede la password amministratore (finestra di sistema) e fa copiare al helper
-    /// /Applications/nmap.app in una cartella di proprietà di root.
+    /// Asks for the administrator password (system dialog) and has the helper copy
+    /// /Applications/nmap.app into a root-owned folder.
     static func adoptNmap() async throws -> String {
         let auth = try await Task.detached(priority: .userInitiated) {
             try AdminAuthorization(prompt: "SubnetScout wants to copy nmap to a protected folder so it can run administrator scans without asking for your password.")
@@ -156,10 +156,10 @@ extension HelperClient {
     }
 }
 
-// MARK: - Sonda di rete
+// MARK: - Network probe
 
 extension HelperClient {
-    /// Tabella ARP e router UPnP letti dal helper.
+    /// ARP table and UPnP routers read by the helper.
     static func networkProbe() async throws -> NetworkProbe {
         try await withTimeout(seconds: 30) { try await networkProbeNoTimeout() }
     }
@@ -184,7 +184,7 @@ extension HelperClient {
     }
 }
 
-/// AuthorizationRef con il diritto admin già ottenuto (password inserita dall'utente).
+/// AuthorizationRef with the admin right already obtained (password entered by the user).
 final class AdminAuthorization: @unchecked Sendable {
     struct Cancelled: LocalizedError {
         var errorDescription: String? { "Authorization cancelled." }
@@ -229,13 +229,13 @@ final class AdminAuthorization: @unchecked Sendable {
         self.externalForm = withUnsafeBytes(of: &ext) { Data($0) }
     }
 
-    /// Distrugge i diritti: la stessa autorizzazione non è riutilizzabile.
+    /// Destroys the rights: the same authorization cannot be reused.
     func release() { AuthorizationFree(ref, [.destroyRights]) }
 }
 
-/// Esegue le scansioni tramite il helper root: niente password, con avanzamento.
+/// Runs scans through the root helper: no password, with progress.
 struct HelperNmapExecutor: NmapExecutor {
-    /// Argomenti «come amministratore»; nmap gira comunque come root nel helper.
+    /// "As administrator" arguments; nmap runs as root in the helper anyway.
     var fullPrivileges: Bool
     var isPrivileged: Bool { fullPrivileges }
 
@@ -274,7 +274,7 @@ struct HelperNmapExecutor: NmapExecutor {
     }
 }
 
-// MARK: - Helper per la concorrenza
+// MARK: - Concurrency helpers
 
 struct HelperTimeout: LocalizedError {
     var errorDescription: String? {
@@ -282,8 +282,8 @@ struct HelperTimeout: LocalizedError {
     }
 }
 
-/// Esegue `operation` con un limite di tempo: una connessione XPC verso un helper
-/// che macOS non lascia partire resterebbe altrimenti in attesa per sempre.
+/// Runs `operation` with a time limit: an XPC connection to a helper that
+/// macOS does not let start would otherwise wait forever.
 func withTimeout<T: Sendable>(seconds: Double, _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
     try await withThrowingTaskGroup(of: T.self) { group in
         group.addTask { try await operation() }
@@ -296,7 +296,7 @@ func withTimeout<T: Sendable>(seconds: Double, _ operation: @escaping @Sendable 
     }
 }
 
-/// Riceve l'avanzamento dal helper (chiamato su una coda XPC).
+/// Receives progress from the helper (called on an XPC queue).
 final class ProgressReceiver: NSObject, ScanHelperClientProtocol, @unchecked Sendable {
     private let id: String
     private let onProgress: @Sendable (Double) -> Void
@@ -312,13 +312,13 @@ final class ProgressReceiver: NSObject, ScanHelperClientProtocol, @unchecked Sen
     }
 }
 
-/// NSXPCConnection è thread-safe.
+/// NSXPCConnection is thread-safe.
 final class ConnectionBox: @unchecked Sendable {
     let value: NSXPCConnection
     init(_ value: NSXPCConnection) { self.value = value }
 }
 
-/// Garantisce che la continuation venga ripresa una sola volta (reply ed error handler possono arrivare entrambi).
+/// Ensures the continuation is resumed only once (reply and error handler can both arrive).
 final class ResumeOnce<T: Sendable>: @unchecked Sendable {
     private var cont: CheckedContinuation<T, Error>?
     private let lock = NSLock()

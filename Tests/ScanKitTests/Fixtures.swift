@@ -1,6 +1,6 @@
 import Foundation
 
-/// Output -oX ridotto ma realistico di nmap 7.9x con tre host.
+/// Reduced but realistic -oX output of nmap 7.9x with three hosts.
 enum Fixtures {
     static let sampleXML = """
     <?xml version="1.0" encoding="UTF-8"?>

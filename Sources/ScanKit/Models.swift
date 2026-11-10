@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - Severità
+// MARK: - Severity
 
 public enum Severity: Int, Codable, CaseIterable, Comparable, Sendable {
     case info = 0, low, medium, high, critical
@@ -17,7 +17,7 @@ public enum Severity: Int, Codable, CaseIterable, Comparable, Sendable {
         }
     }
 
-    /// Peso usato nel punteggio di rischio (0–100).
+    /// Weight used in the risk score (0–100).
     public var weight: Int {
         switch self {
         case .info: 0
@@ -29,7 +29,7 @@ public enum Severity: Int, Codable, CaseIterable, Comparable, Sendable {
     }
 }
 
-// MARK: - Porte e servizi
+// MARK: - Ports and services
 
 public struct ScriptOutput: Codable, Hashable, Sendable {
     public var id: String
@@ -46,9 +46,9 @@ public struct ServiceInfo: Codable, Hashable, Sendable {
     public var product: String?
     public var version: String?
     public var extraInfo: String?
-    /// "ssl" quando nmap ha rilevato un servizio dentro TLS.
+    /// "ssl" when nmap detected a service inside TLS.
     public var tunnel: String?
-    /// Identificativi CPE 2.2 riportati da nmap (es. "cpe:/a:openbsd:openssh:9.6p1").
+    /// CPE 2.2 identifiers reported by nmap (e.g. "cpe:/a:openbsd:openssh:9.6p1").
     public var cpes: [String]?
 
     public init(name: String? = nil, product: String? = nil, version: String? = nil,
@@ -119,11 +119,11 @@ public struct Host: Codable, Hashable, Sendable, Identifiable {
     public var ports: [PortInfo]
     public var hostScripts: [ScriptOutput]
     public var osGuesses: [OSGuess]
-    /// Round-trip time in millisecondi, se disponibile.
+    /// Round-trip time in milliseconds, if available.
     public var latencyMs: Double?
     public var isGateway: Bool
     public var isLocalMachine: Bool
-    /// Nome annunciato via Bonjour (es. «HP LaserJet MFP M140w»), modello e servizi.
+    /// Name announced over Bonjour (e.g. "HP LaserJet MFP M140w"), model and services.
     public var bonjourName: String?
     public var model: String?
     public var bonjourServices: [String]?
@@ -152,7 +152,7 @@ public struct Host: Codable, Hashable, Sendable, Identifiable {
     public var displayName: String { bonjourName ?? hostnames.first ?? ip }
     public var bestOSGuess: OSGuess? { osGuesses.max { $0.accuracy < $1.accuracy } }
 
-    /// Chiave stabile per riconoscere un dispositivo tra scansioni (il MAC se c'è, altrimenti l'IP).
+    /// Stable key to recognize a device across scans (the MAC if there is one, otherwise the IP).
     public var deviceKey: String { mac ?? ip }
 
     public func hostScript(_ id: String) -> String? {
@@ -163,7 +163,7 @@ public struct Host: Codable, Hashable, Sendable, Identifiable {
         ports.contains { $0.number == number && $0.proto == proto && $0.isOpen }
     }
 
-    /// Chiave numerica per ordinare gli IPv4 correttamente (10.0.0.9 < 10.0.0.10).
+    /// Numeric key to sort IPv4 addresses correctly (10.0.0.9 < 10.0.0.10).
     public var ipSortKey: UInt32 { IPv4.parse(ip) ?? .max }
 }
 
@@ -176,7 +176,7 @@ public struct Finding: Codable, Hashable, Sendable, Identifiable {
     public var detail: String
     public var remediation: String
     public var hostIP: String
-    /// es. "445/tcp"; nil per i finding a livello di host.
+    /// e.g. "445/tcp"; nil for host-level findings.
     public var port: String?
     public var evidence: String?
 
@@ -195,7 +195,7 @@ public struct Finding: Codable, Hashable, Sendable, Identifiable {
     public var id: String { "\(ruleID)|\(hostIP)|\(port ?? "-")" }
 }
 
-// MARK: - Risultato di una scansione
+// MARK: - Scan result
 
 public struct ScanResult: Codable, Hashable, Sendable, Identifiable {
     public var id: UUID
@@ -208,11 +208,11 @@ public struct ScanResult: Codable, Hashable, Sendable, Identifiable {
     public var nmapArgs: String?
     public var hosts: [Host]
     public var findings: [Finding]
-    /// Contesto di rete (gateway, DHCP, DNS, UPnP). Assente nelle scansioni salvate dalla 0.1.0.
+    /// Network context (gateway, DHCP, DNS, UPnP). Missing in scans saved by 0.1.0.
     public var network: NetworkContext?
-    /// CVE note per CPE (chiave: CPE 2.3 interrogato). nil se la ricerca non è stata eseguita.
+    /// Known CVEs per CPE (key: the CPE 2.3 queried). nil if the lookup did not run.
     public var vulnerabilities: [String: [CVEEntry]]?
-    /// Motivo per cui la ricerca CVE non è stata completata (es. NVD non raggiungibile).
+    /// Why the CVE lookup did not complete (e.g. NVD unreachable).
     public var cveError: String?
 
     public init(id: UUID = UUID(), target: String, profile: ScanProfile, privileged: Bool,
@@ -239,7 +239,7 @@ public struct ScanResult: Codable, Hashable, Sendable, Identifiable {
     }
 }
 
-// MARK: - Rischio
+// MARK: - Risk
 
 public struct RiskSummary: Hashable, Sendable {
     public let score: Int
@@ -256,8 +256,8 @@ public struct RiskSummary: Hashable, Sendable {
         }
         self.hostScores = perHost.mapValues { min(100, $0) }
         self.counts = counts
-        // Il punteggio di rete è guidato dall'host peggiore, più un contributo
-        // per quanti altri host hanno problemi.
+        // The network score is driven by the worst host, plus a contribution
+        // for how many other hosts have issues.
         let sorted = hostScores.values.sorted(by: >)
         let worst = sorted.first ?? 0
         let others = sorted.dropFirst().reduce(0, +)

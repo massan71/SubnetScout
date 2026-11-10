@@ -1,15 +1,15 @@
-// Genera l'icona di SubnetScout (radar + nodi di rete) e la salva come .icns.
+// Generates the SubnetScout icon (radar + network nodes) and saves it as .icns.
 //
 //   swift scripts/make-icon.swift            # → Resources/AppIcon.icns
-//   swift scripts/make-icon.swift out.png    # → solo PNG 1024×1024 (anteprima)
+//   swift scripts/make-icon.swift out.png    # → PNG 1024×1024 only (preview)
 //
-// Disegnata interamente con CoreGraphics: niente asset binari da mantenere a mano.
+// Drawn entirely with CoreGraphics: no binary assets to maintain by hand.
 
 import AppKit
 import CoreGraphics
 
 let size: CGFloat = 1024
-// Griglia delle icone macOS: corpo 824×824 centrato, raggio d'angolo ~185.
+// macOS icon grid: 824×824 body centered, corner radius ~185.
 let body = CGRect(x: 100, y: 100, width: 824, height: 824)
 let corner: CGFloat = 185
 let center = CGPoint(x: body.midX, y: body.midY)
@@ -34,7 +34,7 @@ func render() -> CGImage {
                         space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
     let shape = CGPath(roundedRect: body, cornerWidth: corner, cornerHeight: corner, transform: nil)
 
-    // Ombra del corpo
+    // Body shadow
     ctx.saveGState()
     ctx.setShadow(offset: CGSize(width: 0, height: -12), blur: 28, color: color(0x000000, 0.35))
     ctx.addPath(shape)
@@ -46,16 +46,16 @@ func render() -> CGImage {
     ctx.addPath(shape)
     ctx.clip()
 
-    // Sfondo: gradiente blu notte → petrolio
+    // Background: gradient from night blue to petrol
     let bg = CGGradient(colorsSpace: space, colors: [color(0x13305A), color(0x0A1A33), color(0x06303A)] as CFArray,
                         locations: [0, 0.55, 1])!
     ctx.drawLinearGradient(bg, start: CGPoint(x: body.minX, y: body.maxY), end: CGPoint(x: body.maxX, y: body.minY), options: [])
 
-    // Bagliore centrale
+    // Central glow
     let glow = CGGradient(colorsSpace: space, colors: [color(mint, 0.18), color(mint, 0)] as CFArray, locations: [0, 1])!
     ctx.drawRadialGradient(glow, startCenter: center, startRadius: 0, endCenter: center, endRadius: 420, options: [])
 
-    // Griglia: assi e anelli concentrici
+    // Grid: axes and concentric rings
     ctx.setLineCap(.round)
     ctx.setStrokeColor(color(mint, 0.13))
     ctx.setLineWidth(4)
@@ -69,9 +69,9 @@ func render() -> CGImage {
         ctx.strokePath()
     }
 
-    // Fascio di scansione: spicchi sempre più trasparenti dietro il bordo d'attacco
-    let lead: CGFloat = 52       // angolo del bordo d'attacco (gradi, antiorario da destra)
-    let trail: CGFloat = 75      // ampiezza della scia
+    // Scan beam: increasingly transparent wedges behind the leading edge
+    let lead: CGFloat = 52       // angle of the leading edge (degrees, counter-clockwise from the right)
+    let trail: CGFloat = 75      // width of the trail
     let steps = 90
     let sweepRadius: CGFloat = 420
     for i in 0..<steps {
@@ -84,7 +84,7 @@ func render() -> CGImage {
         ctx.setFillColor(color(mint, 0.55 * pow(1 - t, 1.8)))
         ctx.fillPath()
     }
-    // Bordo d'attacco
+    // Leading edge
     ctx.saveGState()
     ctx.setShadow(offset: .zero, blur: 18, color: color(mint, 0.9))
     ctx.setStrokeColor(color(0xC9FFF0))
@@ -94,12 +94,12 @@ func render() -> CGImage {
     ctx.strokePath()
     ctx.restoreGState()
 
-    // Nodi di rete e collegamenti
+    // Network nodes and links
     let nodes: [(r: CGFloat, a: CGFloat, size: CGFloat, hot: Bool)] = [
-        (225, 38, 30, false),   // appena «illuminato» dal fascio
+        (225, 38, 30, false),   // just "lit" by the beam
         (335, 112, 24, false),
         (115, 160, 22, false),
-        (290, 205, 26, true),   // problema trovato
+        (290, 205, 26, true),   // issue found
         (225, 300, 24, false),
         (335, 338, 20, false),
     ]
@@ -115,7 +115,7 @@ func render() -> CGImage {
         let p = pts[i]
         let hex = n.hot ? orange : mint
         if n.hot {
-            // alone pulsante attorno al nodo con problemi
+            // pulsing halo around the node with issues
             ctx.setStrokeColor(color(orange, 0.55))
             ctx.setLineWidth(6)
             let r = n.size + 26
@@ -129,19 +129,19 @@ func render() -> CGImage {
         ctx.restoreGState()
     }
 
-    // Centro del radar
+    // Radar center
     ctx.saveGState()
     ctx.setShadow(offset: .zero, blur: 20, color: color(mint, 1))
     ctx.setFillColor(color(0xE6FFF8))
     ctx.fillEllipse(in: CGRect(x: center.x - 22, y: center.y - 22, width: 44, height: 44))
     ctx.restoreGState()
 
-    // Riflesso in alto
+    // Highlight at the top
     let gloss = CGGradient(colorsSpace: space, colors: [color(0xFFFFFF, 0.14), color(0xFFFFFF, 0)] as CFArray, locations: [0, 1])!
     ctx.drawLinearGradient(gloss, start: CGPoint(x: center.x, y: body.maxY), end: CGPoint(x: center.x, y: center.y + 60), options: [])
     ctx.restoreGState()
 
-    // Bordo sottile
+    // Thin border
     ctx.addPath(shape)
     ctx.setStrokeColor(color(0xFFFFFF, 0.10))
     ctx.setLineWidth(3)
@@ -184,5 +184,5 @@ p.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
 p.arguments = ["-c", "icns", iconset.path, "-o", output.path]
 try p.run()
 p.waitUntilExit()
-guard p.terminationStatus == 0 else { print("iconutil non riuscito"); exit(1) }
+guard p.terminationStatus == 0 else { print("iconutil failed"); exit(1) }
 print("✓ \(output.path)")

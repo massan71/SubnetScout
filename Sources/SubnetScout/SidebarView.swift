@@ -5,8 +5,8 @@ struct SidebarView: View {
     @Environment(AppModel.self) private var model
     @AppStorage(CVESettings.enabledKey) private var cveEnabled = false
 
-    // Form raggruppato invece di List(.sidebar): le righe si adattano ai testi
-    // lunghi (descrizioni, messaggi del helper) invece di troncarli.
+    // Grouped Form instead of List(.sidebar): rows adapt to long texts
+    // (descriptions, helper messages) instead of truncating them.
     var body: some View {
         @Bindable var model = model
         Form {
@@ -122,8 +122,8 @@ struct SidebarView: View {
         .formStyle(.grouped)
     }
 
-    /// Il target è una rete CIDR che non corrisponde a nessuna interfaccia attiva
-    /// (tipico dopo aver cambiato Wi-Fi): restituisce la rete attuale da proporre.
+    /// The target is a CIDR network that matches no active interface
+    /// (typical after switching Wi-Fi): returns the current network to suggest.
     private var otherNetworkHint: String? {
         let t = model.target.trimmingCharacters(in: .whitespaces)
         guard t.contains("/"), !t.contains(" "), let first = model.interfaces.first,
@@ -143,7 +143,7 @@ struct SidebarView: View {
     }
 }
 
-/// Stato del privileged helper e azioni per installarlo/approvarlo.
+/// Privileged helper state and actions to install/approve it.
 struct HelperStatusView: View {
     @Environment(AppModel.self) private var model
 
@@ -238,8 +238,8 @@ struct ScanButton: View {
                     ProgressView { Text("Scanning (password)…").font(.callout) }
                         .progressViewStyle(.linear)
                 }
-                // nmap azzera la percentuale a ogni fase (ping, porte, servizi, script):
-                // il tempo trascorso rassicura che la scansione sta andando avanti.
+                // nmap resets the percentage at every phase (ping, ports, services, scripts):
+                // the elapsed time reassures that the scan is moving on.
                 if let start = model.scanStartedAt {
                     TimelineView(.periodic(from: start, by: 1)) { context in
                         Text("Running for \(Duration.seconds(Int(context.date.timeIntervalSince(start))).formatted(.time(pattern: .minuteSecond))) · \(model.scanStage.isEmpty ? model.scanSummary : model.scanStage)")
@@ -290,7 +290,7 @@ struct RiskSummaryView: View {
             GradeBadge(grade: result.profile.scansPorts ? risk.grade : "–", size: 44)
             VStack(alignment: .leading, spacing: 4) {
                 if !result.profile.scansPorts {
-                    // La Discovery non analizza servizi: un voto «A» sarebbe fuorviante.
+                    // Discovery does not analyze services: an "A" grade would be misleading.
                     Text("No audit run").font(.headline)
                     Text("Discovery only finds devices: use Quick or Standard for a grade.")
                         .font(.caption).foregroundStyle(.secondary)

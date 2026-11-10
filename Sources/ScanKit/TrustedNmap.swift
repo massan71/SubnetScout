@@ -1,19 +1,19 @@
 import Foundation
 import Darwin
 
-/// Verifica che un'installazione di nmap si possa eseguire come root in sicurezza.
+/// Checks that an nmap installation can safely be run as root.
 ///
-/// Un daemon root che esegue file modificabili dall'utente equivale a dare root
-/// senza password a qualunque processo dell'utente. Per questo si richiede che
-/// binario, librerie dinamiche (anche quelle via @rpath), directory dati (script
-/// NSE inclusi) e tutte le cartelle che li contengono appartengano a root e non
-/// siano scrivibili da altri.
+/// A root daemon that runs user-writable files amounts to giving passwordless root
+/// to any of the user's processes. That is why the binary, the dynamic libraries
+/// (including those via @rpath), the data directory (NSE scripts included) and every
+/// folder containing them must be owned by root and not
+/// writable by others.
 ///
-/// - nmap di Homebrew NON passa (è tutto di proprietà dell'utente).
-/// - /Applications/nmap.app (installer di nmap.org ≥ 7.99) NON passa: /Applications
-///   è scrivibile dal gruppo admin. Il helper può però «adottarlo», copiandolo in
-///   `adoptedRoot` (di root) dopo un'autorizzazione amministratore.
-/// - /usr/local (vecchi installer di nmap.org) e MacPorts (/opt/local) passano.
+/// - Homebrew's nmap does NOT pass (everything is owned by the user).
+/// - /Applications/nmap.app (nmap.org installer ≥ 7.99) does NOT pass: /Applications
+///   is writable by the admin group. The helper can however "adopt" it, copying it to
+///   `adoptedRoot` (root-owned) after an administrator authorization.
+/// - /usr/local (older nmap.org installers) and MacPorts (/opt/local) pass.
 public enum TrustedNmap {
     public struct Resolved: Sendable, Equatable {
         public let binary: String
@@ -43,12 +43,12 @@ public enum TrustedNmap {
         }
     }
 
-    /// Copia protetta creata dal helper a partire da nmap.app.
+    /// Protected copy created by the helper from nmap.app.
     public static let adoptedRoot = "/Library/Application Support/SubnetScout/nmap"
-    /// Installazione da cui si può creare la copia protetta.
+    /// Installation the protected copy can be created from.
     public static let adoptionSource = "/Applications/nmap.app/Contents/Resources"
 
-    /// Ordine di preferenza: copia protetta, vecchio pacchetto ufficiale, MacPorts, Homebrew.
+    /// Order of preference: protected copy, old official package, MacPorts, Homebrew.
     public static let candidates = [
         adoptedRoot + "/bin/nmap",
         "/usr/local/bin/nmap",
@@ -56,13 +56,13 @@ public enum TrustedNmap {
         "/opt/homebrew/bin/nmap",
     ]
 
-    /// true se esiste nmap.app ma non ancora una copia protetta valida.
+    /// true if nmap.app exists but there is no valid protected copy yet.
     public static var canAdopt: Bool {
         FileManager.default.isExecutableFile(atPath: adoptionSource + "/bin/nmap")
             && (try? check(adoptedRoot + "/bin/nmap")) == nil
     }
 
-    /// Il primo nmap affidabile, oppure il problema del primo trovato.
+    /// The first trusted nmap, or the problem with the first one found.
     public static func resolve(candidates: [String] = candidates) -> Result<Resolved, Problem> {
         var firstProblem: Problem?
         for path in candidates where FileManager.default.fileExists(atPath: path) {
@@ -88,7 +88,7 @@ public enum TrustedNmap {
         return Resolved(binary: binary, dataDir: dataDir)
     }
 
-    /// Controlla binario e librerie (ricorsivamente); restituisce il percorso reale del binario.
+    /// Checks the binary and libraries (recursively); returns the real path of the binary.
     @discardableResult
     public static func checkBinary(_ path: String) throws -> String {
         let real = try realPath(path)
@@ -111,11 +111,11 @@ public enum TrustedNmap {
             if p.hasPrefix("@loader_path") { return loaderDir + p.dropFirst("@loader_path".count) }
             return p.hasPrefix("/") ? p : nil
         }
-        // dyld cerca @rpath prima nelle rpath dell'immagine, poi in quelle di chi l'ha caricata.
+        // dyld looks up @rpath first in the image's rpaths, then in those of whoever loaded it.
         let rpaths = info.rpaths.compactMap(expand) + inheritedRpaths
 
         for lib in info.dylibs {
-            if lib.hasPrefix("/usr/lib/") || lib.hasPrefix("/System/") { continue } // protetti da SIP
+            if lib.hasPrefix("/usr/lib/") || lib.hasPrefix("/System/") { continue } // protected by SIP
             let candidates: [String]
             if lib.hasPrefix("@rpath/") {
                 candidates = rpaths.map { $0 + "/" + lib.dropFirst("@rpath/".count) }
@@ -124,8 +124,8 @@ public enum TrustedNmap {
             } else {
                 throw Problem.untrustedLibrary(lib)
             }
-            // Ogni posizione esaminata da dyld prima di quella giusta deve essere protetta:
-            // altrimenti un attaccante potrebbe piazzarci una libreria che verrebbe caricata prima.
+            // Every location dyld examines before the right one must be protected:
+            // otherwise an attacker could plant a library there that would be loaded first.
             var found: String?
             for c in candidates {
                 do { try checkPotentialPath(c) } catch { throw Problem.untrustedLibrary(lib) }
@@ -137,7 +137,7 @@ public enum TrustedNmap {
         }
     }
 
-    // MARK: - Permessi
+    // MARK: - Permissions
 
     static func dirname(_ p: String) -> String { (p as NSString).deletingLastPathComponent }
 
@@ -154,7 +154,7 @@ public enum TrustedNmap {
             && (mode & S_IWGRP == 0 || st.st_gid == 0)
     }
 
-    /// Il file e ogni cartella fino a "/" devono essere di root e non scrivibili da altri.
+    /// The file and every folder up to "/" must be owned by root and not writable by others.
     static func checkAncestors(_ realPath: String) throws {
         var url = URL(fileURLWithPath: realPath)
         while true {
@@ -165,8 +165,8 @@ public enum TrustedNmap {
         }
     }
 
-    /// Per un percorso che potrebbe non esistere: il primo antenato esistente deve
-    /// essere protetto (così nessuno può crearci dentro file).
+    /// For a path that may not exist: the first existing ancestor must
+    /// be protected (so nobody can create files inside it).
     static func checkPotentialPath(_ path: String) throws {
         var url = URL(fileURLWithPath: path)
         while !FileManager.default.fileExists(atPath: url.path) {
@@ -175,7 +175,7 @@ public enum TrustedNmap {
         try checkAncestors(try realPath(url.path))
     }
 
-    /// Controllo ricorsivo della directory dati (script NSE, nselib, …).
+    /// Recursive check of the data directory (NSE scripts, nselib, …).
     static func checkTree(_ dir: String) throws {
         let real = try realPath(dir)
         try checkAncestors(real)
@@ -200,7 +200,7 @@ public enum TrustedNmap {
         var setsDyldEnvironment = false
     }
 
-    /// Librerie dinamiche caricate da un binario Mach-O (thin o universale).
+    /// Dynamic libraries loaded by a Mach-O binary (thin or universal).
     public static func dylibs(of path: String) throws -> [String] {
         try machO(of: path).dylibs
     }

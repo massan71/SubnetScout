@@ -2,12 +2,12 @@ import SwiftUI
 import AppKit
 import ScanKit
 
-/// Modalità di verifica visiva:
+/// Visual check mode:
 ///
-///     SubnetScout.app/Contents/MacOS/SubnetScout --qa-snapshots /percorso/cartella
+///     SubnetScout.app/Contents/MacOS/SubnetScout --qa-snapshots /path/to/folder
 ///
-/// Apre le viste principali in finestre fuori schermo con i dati reali dello storico
-/// e salva un PNG per ciascuna. Serve a controllare l'interfaccia senza cliccare.
+/// Opens the main views in off-screen windows with the real history data
+/// and saves a PNG of each. Used to check the interface without clicking.
 @MainActor
 enum QASnapshots {
     static func runIfRequested() -> Bool {
@@ -30,7 +30,7 @@ enum QASnapshots {
         await model.refreshHelper()
         try? await Task.sleep(for: .milliseconds(300))
 
-        // Il dispositivo con più problemi, per riempire la vista di dettaglio.
+        // The device with the most issues, to fill the detail view.
         let worst = model.current.flatMap { r in
             r.hosts.max { r.findings(for: $0).count < r.findings(for: $1).count }
         }
@@ -49,6 +49,7 @@ enum QASnapshots {
         await main("01-devices") { model.resultsMode = .devices; model.selectedHostID = worst?.id }
         await main("02-issues") { model.resultsMode = .findings }
         await main("03-network") { model.resultsMode = .network }
+        await main("03b-map") { model.resultsMode = .map; model.selectedHostID = worst?.id }
         if let (scan, host) = withCVE {
             await main("04-cve") { model.show(scan); model.resultsMode = .devices; model.selectedHostID = host.id }
         }
@@ -72,7 +73,7 @@ enum QASnapshots {
         window.backgroundColor = .windowBackgroundColor
         window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
         window.orderFrontRegardless()
-        // Lascia a SwiftUI il tempo di impaginare (tabelle e form sono viste AppKit).
+        // Give SwiftUI time to lay out (tables and forms are AppKit views).
         for _ in 0..<6 {
             host.layoutSubtreeIfNeeded()
             try? await Task.sleep(for: .milliseconds(200))

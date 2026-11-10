@@ -1,12 +1,12 @@
 import Foundation
 import ScanKit
 
-/// Diagnostica da riga di comando:
+/// Command-line diagnostics:
 ///
 ///     /Applications/SubnetScout.app/Contents/MacOS/SubnetScout --diagnose-network
 ///
-/// Utile perché permesso «Rete locale» e App Transport Security valgono per l'app,
-/// non per i test o per gli script lanciati dal terminale.
+/// Useful because the Local Network permission and App Transport Security apply to the app,
+/// not to tests or to scripts launched from the terminal.
 enum Diagnostics {
     static func runAndExit() -> Never {
         let done = DispatchSemaphore(value: 0)

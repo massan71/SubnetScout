@@ -2,12 +2,12 @@ import Foundation
 import CryptoKit
 import Security
 
-/// Storico delle scansioni in ~/Library/Application Support/SubnetScout/Scans.
+/// Scan history in ~/Library/Application Support/SubnetScout/Scans.
 ///
-/// Ogni scansione contiene l'inventario della rete con vulnerabilità e CVE, quindi
-/// viene cifrata con AES-256-GCM (file `.ssenc`). La chiave è casuale e sta nel
-/// Portachiavi (solo su questo Mac); cartella 0700, file 0600. Le scansioni in chiaro
-/// delle versioni precedenti (`.json`) vengono cifrate al primo caricamento.
+/// Every scan contains the network inventory with vulnerabilities and CVEs, so
+/// it is encrypted with AES-256-GCM (`.ssenc` files). The key is random and lives in
+/// the Keychain (this Mac only); folder 0700, files 0600. Plaintext scans from
+/// earlier versions (`.json`) are encrypted on first load.
 public struct ScanHistoryStore: Sendable {
     public let directory: URL
     private let keyProvider: @Sendable () throws -> SymmetricKey
@@ -26,8 +26,8 @@ public struct ScanHistoryStore: Sendable {
     }
 
     /// - Parameters:
-    ///   - directory: cartella dello storico (default Application Support).
-    ///   - keyProvider: chiave di cifratura; di default quella del Portachiavi.
+    ///   - directory: history folder (default Application Support).
+    ///   - keyProvider: encryption key; the Keychain one by default.
     public init(directory: URL? = nil, keyProvider: (@Sendable () throws -> SymmetricKey)? = nil) {
         if let directory {
             self.directory = directory
@@ -60,7 +60,7 @@ public struct ScanHistoryStore: Sendable {
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
 
-    /// Tutte le scansioni leggibili, dalla più recente. Migra quelle in chiaro.
+    /// All readable scans, newest first. Migrates the plaintext ones.
     public func loadAll() -> [ScanResult] {
         let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         try? prepareDirectory()
@@ -70,7 +70,7 @@ public struct ScanHistoryStore: Sendable {
             case Self.fileExtension:
                 if let r = try? decrypt(file) { results.append(r) }
             case "json":
-                // Scansione in chiaro di una versione precedente: cifrala ed elimina l'originale.
+                // Plaintext scan from an earlier version: encrypt it and delete the original.
                 guard let data = try? Data(contentsOf: file),
                       let r = try? Self.decoder().decode(ScanResult.self, from: data) else { continue }
                 if (try? save(r)) != nil, (try? decrypt(url(for: r.id))) != nil {
@@ -84,7 +84,7 @@ public struct ScanHistoryStore: Sendable {
         return results.sorted { $0.finishedAt > $1.finishedAt }
     }
 
-    /// Come `loadAll()`, più il numero di file non decifrabili, in un solo passaggio.
+    /// Like `loadAll()`, plus the number of files that could not be decrypted, in a single pass.
     public func loadAllReportingUnreadable() -> (results: [ScanResult], unreadable: Int) {
         let results = loadAll()
         let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
@@ -92,7 +92,7 @@ public struct ScanHistoryStore: Sendable {
         return (results, max(0, encrypted - results.count))
     }
 
-    /// Numero di file che non è stato possibile decifrare (es. chiave cancellata).
+    /// Number of files that could not be decrypted (e.g. key deleted).
     public func unreadableCount() -> Int {
         let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         return files.filter { $0.pathExtension == Self.fileExtension && (try? decrypt($0)) == nil }.count
@@ -115,7 +115,7 @@ public struct ScanHistoryStore: Sendable {
         try? FileManager.default.removeItem(at: directory.appending(path: "\(id.uuidString).json"))
     }
 
-    /// Scansione precedente dello stesso target, per calcolare il diff.
+    /// Previous scan of the same target, to compute the diff.
     public func previous(of result: ScanResult, in history: [ScanResult]) -> ScanResult? {
         history.filter { $0.id != result.id && $0.target == result.target && $0.finishedAt < result.finishedAt }
             .max { $0.finishedAt < $1.finishedAt }
@@ -131,7 +131,7 @@ public struct ScanHistoryStore: Sendable {
     }
 }
 
-/// Chiave AES-256 dello storico nel Portachiavi di login (solo questo Mac).
+/// AES-256 key of the history in the login Keychain (this Mac only).
 public enum HistoryKey {
     static let service = "net.sangalli.SubnetScout.history-key"
 
@@ -147,7 +147,7 @@ public enum HistoryKey {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var memo: SymmetricKey?
 
-    /// Come `load()`, ma legge il Portachiavi una sola volta per processo.
+    /// Like `load()`, but reads the Keychain only once per process.
     public static func cached() throws -> SymmetricKey {
         lock.lock(); defer { lock.unlock() }
         if let memo { return memo }
@@ -156,7 +156,7 @@ public enum HistoryKey {
         return key
     }
 
-    /// Restituisce la chiave, creandola la prima volta.
+    /// Returns the key, creating it the first time.
     public static func load() throws -> SymmetricKey {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecAttrService as String: service,

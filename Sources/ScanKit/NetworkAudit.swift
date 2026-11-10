@@ -1,13 +1,13 @@
 import Foundation
 
-/// Regole a livello di rete: attacchi in corso sulla LAN (ARP spoofing, DHCP
-/// non autorizzati), DNS anomali ed esposizione verso Internet (UPnP).
+/// Network-level rules: attacks in progress on the LAN (ARP spoofing, rogue
+/// DHCP), unusual DNS and exposure to the Internet (UPnP).
 public enum NetworkAudit {
     public static func audit(context: NetworkContext, hosts: [Host], previous: ScanResult?) -> [Finding] {
         var f: [Finding] = []
         let gatewayIP = context.gatewayIP
 
-        // --- ARP spoofing: il MAC del gateway è cambiato rispetto alla scansione precedente
+        // --- ARP spoofing: the gateway MAC changed since the previous scan
         if let gw = gatewayIP, let mac = context.gatewayMAC,
            let prev = previous?.network, prev.gatewayIP == gw, let oldMAC = prev.gatewayMAC, oldMAC != mac {
             f.append(Finding(
@@ -18,7 +18,7 @@ public enum NetworkAudit {
                 hostIP: gw, evidence: "\(oldMAC) → \(mac)"))
         }
 
-        // --- ARP spoofing: un altro IP usa lo stesso MAC del gateway
+        // --- ARP spoofing: another IP uses the gateway's MAC
         if let gw = gatewayIP, let mac = context.gatewayMAC {
             let impostors = hosts.filter { $0.ip != gw && $0.mac == mac }
             for h in impostors {
@@ -31,7 +31,7 @@ public enum NetworkAudit {
             }
         }
 
-        // --- DHCP: offerte da server diversi da quello che ci ha assegnato l'indirizzo
+        // --- DHCP: offers from servers other than the one that assigned our address
         let expected = Set([context.dhcpServer, gatewayIP].compactMap { $0 })
         var reported = Set<String>()
         for offer in context.dhcpOffers where !expected.contains(offer.server) && reported.insert(offer.server).inserted {
@@ -44,7 +44,7 @@ public enum NetworkAudit {
                 remediation: "Find device \(offer.server) (often a second router or a hotspot) and turn off its DHCP server.",
                 hostIP: offer.server))
         }
-        // Il server atteso offre gateway o DNS diversi da quelli ricevuti
+        // The expected server offers a gateway or DNS different from the ones we received
         for offer in context.dhcpOffers where expected.contains(offer.server) {
             let oddRouters = Set(offer.routers).subtracting(context.dhcpRouters)
             if !context.dhcpRouters.isEmpty, !oddRouters.isEmpty {
@@ -57,7 +57,7 @@ public enum NetworkAudit {
             }
         }
 
-        // --- DNS assegnati
+        // --- Assigned DNS
         let localNet = context.localIP.flatMap(IPv4.parse)
         for dns in context.dnsServers {
             guard let v = IPv4.parse(dns), dns != gatewayIP else { continue }
@@ -78,7 +78,7 @@ public enum NetworkAudit {
             }
         }
 
-        // --- UPnP: router che permettono ai dispositivi di aprire porte verso Internet
+        // --- UPnP: routers that let devices open ports to the Internet
         for gw in context.upnpGateways {
             let active = gw.mappings.filter(\.enabled)
             if active.isEmpty {
@@ -107,7 +107,7 @@ public enum NetworkAudit {
             }
         }
 
-        // --- Gestione del router raggiungibile dalla LAN
+        // --- Router management reachable from the LAN
         let routerIPs = Set([gatewayIP].compactMap { $0 } + context.upnpGateways.map(\.ip))
         for h in hosts where routerIPs.contains(h.ip) {
             let mgmt = h.openPorts.filter {

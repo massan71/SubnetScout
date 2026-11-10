@@ -3,8 +3,8 @@ import Security
 import Darwin
 import ScanKit
 
-/// Crea la copia protetta di nmap.app in `TrustedNmap.adoptedRoot` (tutto root:wheel, niente
-/// permessi di scrittura per gruppo/altri). Il sorgente è fisso: il client non sceglie percorsi.
+/// Creates the protected copy of nmap.app in `TrustedNmap.adoptedRoot` (all root:wheel, no
+/// group/other write permissions). The source is fixed: the client does not choose paths.
 enum NmapAdopter {
     enum AdoptError: LocalizedError {
         case unauthorized
@@ -20,7 +20,7 @@ enum NmapAdopter {
         }
     }
 
-    /// Verifica che il client abbia ottenuto il diritto admin (password) su questa AuthorizationRef.
+    /// Checks that the client obtained the admin right (password) on this AuthorizationRef.
     static func verifyAdmin(_ data: Data) -> Bool {
         guard data.count == MemoryLayout<AuthorizationExternalForm>.size else { return false }
         var ext = AuthorizationExternalForm()
@@ -34,7 +34,7 @@ enum NmapAdopter {
             var item = AuthorizationItem(name: name, valueLength: 0, value: nil, flags: 0)
             withUnsafeMutablePointer(to: &item) { ptr in
                 var rights = AuthorizationRights(count: 1, items: ptr)
-                // Nessuna interazione: passa solo se il client ha già inserito la password.
+                // No interaction: passes only if the client already entered the password.
                 status = AuthorizationCopyRights(ref, &rights, nil, [.extendRights], nil)
             }
         }
@@ -63,11 +63,11 @@ enum NmapAdopter {
             }
         }
         try hardenTree(staging)
-        // La copia ora è di root (non più modificabile dall'utente): la si confronta
-        // con la ricevuta dell'installer prima di renderla attiva.
+        // The copy is now owned by root (no longer user-modifiable): compare it
+        // with the installer receipt before making it active.
         try InstallerReceipt.verify(root: staging.path)
 
-        // Sostituzione atomica della copia precedente.
+        // Atomic replacement of the previous copy.
         let old = parent.appending(path: ".nmap-old-\(UUID().uuidString)")
         if fm.fileExists(atPath: root.path) { try fm.moveItem(at: root, to: old) }
         try fm.moveItem(at: staging, to: root)
@@ -76,8 +76,8 @@ enum NmapAdopter {
         return try TrustedNmap.check(root.appending(path: "bin/nmap").path)
     }
 
-    /// root:wheel e niente scrittura per gruppo/altri su ogni elemento; i link simbolici
-    /// devono puntare dentro la copia.
+    /// root:wheel and no group/other write on every item; symbolic links
+    /// must point inside the copy.
     private static func hardenTree(_ dir: URL) throws {
         let base = dir.resolvingSymlinksInPath().path
         guard let walker = FileManager.default.enumerator(atPath: dir.path) else { return }
@@ -99,7 +99,7 @@ enum NmapAdopter {
         var st = stat()
         guard lstat(path, &st) == 0 else { throw CocoaError(.fileNoSuchFile) }
         guard lchown(path, 0, 0) == 0 else { throw POSIXError(.EPERM) }
-        let mode = (st.st_mode & 0o7777) & ~mode_t(0o7022) // niente setuid/setgid/sticky, niente g+w/o+w
+        let mode = (st.st_mode & 0o7777) & ~mode_t(0o7022) // no setuid/setgid/sticky, no g+w/o+w
         guard chmod(path, isDirectory ? (mode | 0o755) : mode) == 0 else { throw POSIXError(.EPERM) }
     }
 }

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Differenze tra due scansioni dello stesso target.
+/// Differences between two scans of the same target.
 public struct ScanDiff: Hashable, Sendable {
     public struct PortChange: Hashable, Sendable {
         public var hostIP: String
@@ -22,7 +22,7 @@ public struct ScanDiff: Hashable, Sendable {
 
     public init(previous: ScanResult, current: ScanResult) {
         previousScanDate = previous.finishedAt
-        // I dispositivi si riconoscono per MAC quando disponibile (l'IP DHCP può cambiare).
+        // Devices are matched by MAC when available (the DHCP IP can change).
         let prevKeys = Set(previous.hosts.map(\.deviceKey) + previous.hosts.map(\.ip))
         let currKeys = Set(current.hosts.map(\.deviceKey) + current.hosts.map(\.ip))
         newHosts = current.hosts.filter { !prevKeys.contains($0.deviceKey) && !prevKeys.contains($0.ip) }
@@ -39,7 +39,7 @@ public struct ScanDiff: Hashable, Sendable {
                 for (id, p) in now where before[id] == nil {
                     opened.append(PortChange(hostIP: host.ip, hostName: host.displayName, port: id, service: p.serviceName))
                 }
-                // Una porta "sparita" conta solo se la nuova scansione l'ha effettivamente controllata.
+                // A "vanished" port only counts if the new scan actually checked it.
                 if current.profile == previous.profile || current.profile == .full {
                     for (id, p) in before where now[id] == nil {
                         closed.append(PortChange(hostIP: host.ip, hostName: host.displayName, port: id, service: p.serviceName))

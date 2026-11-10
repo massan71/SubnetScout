@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import ScanKit
 
-// MARK: - Barra dei menu
+// MARK: - Menu bar
 
 struct MenuBarContent: View {
     @Environment(AppModel.self) private var model
@@ -42,7 +42,7 @@ struct MenuBarContent: View {
     }
 }
 
-// MARK: - Impostazioni
+// MARK: - Settings
 
 struct SettingsTabs: View {
     var body: some View {

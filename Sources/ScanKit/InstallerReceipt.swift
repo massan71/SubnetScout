@@ -1,11 +1,11 @@
 import Foundation
 
-/// Confronta una copia di nmap.app con la ricevuta dell'installer ufficiale
-/// (`/var/db/receipts/org.insecure.nmap.bom`, scritta da macOS all'installazione).
+/// Compares a copy of nmap.app with the receipt of the official installer
+/// (`/var/db/receipts/org.insecure.nmap.bom`, written by macOS at install time).
 ///
-/// La ricevuta contiene dimensione e checksum POSIX `cksum` (CRC-32) di ogni file:
-/// intercetta modifiche accidentali o banali fatte dopo l'installazione, non un
-/// attaccante deciso a falsificare un CRC. È un controllo in più, non una firma.
+/// The receipt holds the size and POSIX `cksum` checksum (CRC-32) of every file:
+/// it catches accidental or trivial changes made after installation, not an
+/// attacker determined to forge a CRC. It is an extra check, not a signature.
 public enum InstallerReceipt {
     public struct Entry: Equatable, Sendable {
         public var size: Int
@@ -35,8 +35,8 @@ public enum InstallerReceipt {
     public static let receiptBOM = "/var/db/receipts/org.insecure.nmap.bom"
     public static let bomPrefix = "./nmap.app/Contents/Resources/"
 
-    /// Righe di `lsbom -p fMsc`: "./percorso<TAB>-rwxr-xr-x<TAB>size<TAB>cksum".
-    /// Restituisce solo i file regolari sotto `prefix`, con percorso relativo.
+    /// Lines of `lsbom -p fMsc`: "./path<TAB>-rwxr-xr-x<TAB>size<TAB>cksum".
+    /// Returns only the regular files under `prefix`, with relative paths.
     static func parseBOM(_ listing: String, prefix: String) -> [String: Entry] {
         var out: [String: Entry] = [:]
         for line in listing.split(separator: "\n") {
@@ -48,7 +48,7 @@ public enum InstallerReceipt {
         return out
     }
 
-    /// Output di `cksum file…`: "crc size percorso".
+    /// Output of `cksum file…`: "crc size path".
     static func parseCksum(_ output: String, root: String) -> [String: Entry] {
         var out: [String: Entry] = [:]
         let base = root.hasSuffix("/") ? root : root + "/"
@@ -60,7 +60,7 @@ public enum InstallerReceipt {
         return out
     }
 
-    /// Confronta i file regolari di `root` (bin, lib, share) con la ricevuta.
+    /// Compares the regular files of `root` (bin, lib, share) with the receipt.
     public static func verify(root: String, receipt: String = receiptBOM, prefix: String = bomPrefix) throws {
         guard FileManager.default.fileExists(atPath: receipt),
               let listing = try? Shell.run("/usr/bin/lsbom", ["-p", "fMsc", receipt]) else {

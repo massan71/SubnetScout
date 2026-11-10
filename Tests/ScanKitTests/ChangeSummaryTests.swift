@@ -25,10 +25,10 @@ import Testing
         var a2 = a
         a2.ports.append(PortInfo(number: 23, proto: "tcp", state: "open"))
         let s = ChangeSummary(previous: scan([a]), current: scan([a2, b, c]), trusted: ["AA:00:00:00:00:30"])
-        #expect(s.newDevices == 1, "c è noto")
+        #expect(s.newDevices == 1, "c is known")
         #expect(s.openedPorts == 1)
         #expect(s.body == "1 new device · 1 opened port")
-        #expect(!s.body.contains("192.168"), "niente IP nelle notifiche")
+        #expect(!s.body.contains("192.168"), "no IPs in notifications")
     }
 
     @Test func severityThresholdAndCVEsAreSeparated() {
@@ -36,7 +36,7 @@ import Testing
         let curr = scan([a], [finding("telnet", .high, a.ip), finding("http-cleartext", .low, a.ip),
                               finding("known-cve", .critical, a.ip)])
         let s = ChangeSummary(previous: prev, current: curr, trusted: [])
-        #expect(s.newIssues == 1, "la gravità bassa non notifica")
+        #expect(s.newIssues == 1, "low severity does not notify")
         #expect(s.newCVEServices == 1)
         #expect(s.worst == .critical)
         #expect(s.title.contains("security issues"))

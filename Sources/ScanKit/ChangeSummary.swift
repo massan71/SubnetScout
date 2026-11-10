@@ -1,21 +1,21 @@
 import Foundation
 
-/// Cosa è cambiato tra due scansioni dello stesso target, ridotto a ciò che merita
-/// una notifica. Contiene solo conteggi: la notifica può comparire sullo schermo
-/// bloccato, quindi niente IP, nomi o MAC.
+/// What changed between two scans of the same target, reduced to what deserves
+/// a notification. It holds only counts: the notification may appear on the lock
+/// screen, so no IPs, names or MACs.
 public struct ChangeSummary: Equatable, Sendable {
     public var target: String
-    /// Dispositivi nuovi e non segnati come noti.
+    /// New devices not marked as known.
     public var newDevices: Int
     public var openedPorts: Int
-    /// Nuovi problemi (esclusi CVE) con gravità almeno `minimumSeverity`.
+    /// New findings (CVEs excluded) with severity at least `minimumSeverity`.
     public var newIssues: Int
-    /// Servizi con vulnerabilità note comparse in questa scansione.
+    /// Services with known vulnerabilities that appeared in this scan.
     public var newCVEServices: Int
     public var worst: Severity?
 
-    /// - Parameter previous: nil alla prima scansione del target: fa da riferimento,
-    ///   quindi non genera notifiche.
+    /// - Parameter previous: nil on the first scan of the target: it is the baseline,
+    ///   so it triggers no notifications.
     public init(previous: ScanResult?, current: ScanResult, trusted: Set<String>,
                 minimumSeverity: Severity = .medium) {
         target = current.target

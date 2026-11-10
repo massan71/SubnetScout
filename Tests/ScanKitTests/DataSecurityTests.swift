@@ -10,7 +10,7 @@ import CryptoKit
 
     func sample() -> ScanResult {
         ScanResult(target: "192.168.1.0/24", profile: .quick, privileged: false, startedAt: Date(timeIntervalSince1970: 1),
-                   finishedAt: Date(timeIntervalSince1970: 2), hosts: [Host(ip: "192.168.1.77", hostnames: ["segreto.lan"])],
+                   finishedAt: Date(timeIntervalSince1970: 2), hosts: [Host(ip: "192.168.1.77", hostnames: ["secret.lan"])],
                    findings: [])
     }
 
@@ -24,7 +24,7 @@ import CryptoKit
         let files = try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
         #expect(files.map(\.pathExtension) == ["ssenc"])
         let raw = try Data(contentsOf: files[0])
-        #expect(raw.range(of: Data("segreto.lan".utf8)) == nil, "nessun dato in chiaro su disco")
+        #expect(raw.range(of: Data("secret.lan".utf8)) == nil, "no plaintext data on disk")
         #expect(raw.range(of: Data("192.168.1.77".utf8)) == nil)
 
         let perms = try FileManager.default.attributesOfItem(atPath: files[0].path)[.posixPermissions] as? Int
@@ -33,7 +33,7 @@ import CryptoKit
         #expect(dirPerms == 0o700)
 
         #expect(store.loadAll().map(\.id) == [r.id])
-        #expect(store.loadAll().first?.hosts.first?.hostnames == ["segreto.lan"])
+        #expect(store.loadAll().first?.hosts.first?.hostnames == ["secret.lan"])
     }
 
     @Test func migratesPlaintextScans() throws {
@@ -46,7 +46,7 @@ import CryptoKit
 
         #expect(store.loadAll().map(\.id) == [r.id])
         let names = try FileManager.default.contentsOfDirectory(atPath: dir.path)
-        #expect(names == ["\(r.id.uuidString).ssenc"], "il file in chiaro va eliminato dopo la cifratura")
+        #expect(names == ["\(r.id.uuidString).ssenc"], "the plaintext file is deleted after encryption")
     }
 
     @Test func wrongKeyIsReportedNotCrashing() throws {
@@ -96,7 +96,7 @@ import CryptoKit
         }
     }
 
-    /// Il vero nmap.app installato (e la copia protetta) devono corrispondere alla ricevuta.
+    /// The real installed nmap.app (and the protected copy) must match the receipt.
     @Test(.enabled(if: FileManager.default.fileExists(atPath: InstallerReceipt.receiptBOM)
                    && FileManager.default.fileExists(atPath: TrustedNmap.adoptionSource)))
     func installedNmapMatchesReceipt() throws {

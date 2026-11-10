@@ -1,7 +1,7 @@
 import Foundation
 
-/// Profili di scansione predefiniti. Gli argomenti cambiano se nmap gira come root
-/// (SYN scan, OS detection, UDP) oppure come utente normale (connect scan).
+/// Predefined scan profiles. The arguments change depending on whether nmap runs as root
+/// (SYN scan, OS detection, UDP) or as a normal user (connect scan).
 public enum ScanProfile: String, Codable, CaseIterable, Identifiable, Sendable {
     case discovery
     case quick
@@ -30,7 +30,7 @@ public enum ScanProfile: String, Codable, CaseIterable, Identifiable, Sendable {
 
     public var scansPorts: Bool { self != .discovery }
 
-    /// Script NSE usati per l'audit: tutti appartengono alle categorie `safe`/`default`/`discovery`.
+    /// NSE scripts used for the audit: all belong to the `safe`/`default`/`discovery` categories.
     static let auditScriptsTCP = [
         "ftp-anon", "ssl-cert", "ssl-enum-ciphers",
         "smb-protocols", "smb2-security-mode",
@@ -39,12 +39,12 @@ public enum ScanProfile: String, Codable, CaseIterable, Identifiable, Sendable {
         "http-security-headers", "http-methods", "ssl-dh-params", "ssh-hostkey",
     ]
     static let auditScriptsUDP = ["snmp-info", "dns-recursion", "upnp-info"]
-    /// Script broadcast (categoria «safe»), eseguiti una volta prima degli host. Richiedono root.
+    /// Broadcast scripts ("safe" category), run once before the hosts. They require root.
     static let networkScriptsPrivileged = ["broadcast-dhcp-discover"]
-    /// La sonda DHCP usa il MAC reale del Mac: molti router ignorano i MAC casuali.
+    /// The DHCP probe uses the Mac's real MAC: many routers ignore random MACs.
     static let networkScriptArgs = "broadcast-dhcp-discover.mac=native"
 
-    /// Porte UDP interrogate nel profilo completo (solo con privilegi).
+    /// UDP ports probed in the full profile (with privileges only).
     static let udpPorts = "53,67,123,137,161,500,1900,5353"
 
     public func arguments(privileged: Bool) -> [String] {
@@ -52,9 +52,9 @@ public enum ScanProfile: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .discovery:
             args += ["-sn"]
-        // Niente --top-ports: il pacchetto ufficiale nmap 7.993 lo rifiuta sempre
+        // No --top-ports: the official nmap 7.993 package always rejects it
         // ("--top-ports should be an integer between 1 and 65535").
-        // -F = top 100; senza specifica di porte nmap usa già le top 1000.
+        // -F = top 100; without a port specification nmap already uses the top 1000.
         case .quick:
             args += ["-F", "-sV", "--version-light"]
             if privileged { args += ["-sS"] }
@@ -79,7 +79,7 @@ public enum ScanProfile: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
-// MARK: - Validazione dei target
+// MARK: - Target validation
 
 public enum TargetError: LocalizedError, Equatable {
     case empty
@@ -94,8 +94,8 @@ public enum TargetError: LocalizedError, Equatable {
 }
 
 public enum TargetParser {
-    /// Divide la stringa in target e rifiuta tutto ciò che potrebbe essere
-    /// interpretato da nmap come un'opzione (es. "-iL /etc/passwd").
+    /// Splits the string into targets and rejects anything nmap could
+    /// interpret as an option (e.g. "-iL /etc/passwd").
     public static func parse(_ input: String) throws -> [String] {
         let tokens = input
             .split { $0 == " " || $0 == "," || $0 == "\n" || $0 == "\t" }
@@ -115,7 +115,7 @@ public enum TargetParser {
         return tokens
     }
 
-    /// Numero approssimativo di indirizzi coperti (per avvisare su scansioni enormi).
+    /// Approximate number of addresses covered (to warn about huge scans).
     public static func estimatedHostCount(_ targets: [String]) -> Int {
         targets.reduce(0) { sum, t in
             if let slash = t.firstIndex(of: "/"), let p = Int(t[t.index(after: slash)...]) {

@@ -1,7 +1,7 @@
 import Foundation
 
-/// Lookup del produttore dal MAC usando il database OUI fornito con nmap
-/// (`share/nmap/nmap-mac-prefixes`), così non serve distribuirne uno.
+/// Vendor lookup from the MAC using the OUI database shipped with nmap
+/// (`share/nmap/nmap-mac-prefixes`), so we don't need to ship one.
 public final class MACVendorDB: Sendable {
     private let prefixes: [String: String]
 
@@ -30,12 +30,12 @@ public final class MACVendorDB: Sendable {
 
     public var isEmpty: Bool { prefixes.isEmpty }
 
-    /// Restituisce il produttore, o "Private MAC (randomized)" per gli indirizzi
-    /// amministrati localmente tipici di iPhone/Android con "indirizzo privato Wi-Fi".
+    /// Returns the vendor, or "Private MAC (randomized)" for the locally administered
+    /// addresses typical of iPhone/Android with "Private Wi-Fi address".
     public func vendor(for mac: String) -> String? {
         let hex = mac.replacingOccurrences(of: ":", with: "").uppercased()
         guard hex.count == 12 else { return nil }
-        // Prefissi più lunghi prima (MA-S 9, MA-M 7, MA-L 6).
+        // Longer prefixes first (MA-S 9, MA-M 7, MA-L 6).
         for len in [9, 7, 6] {
             if let v = prefixes[String(hex.prefix(len))] { return v }
         }

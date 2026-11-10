@@ -5,28 +5,28 @@ import Testing
 @Suite struct BonjourParsingTests {
     @Test func parsesTXTRecords() {
         var bytes: [UInt8] = []
-        for s in ["ty=HP LaserJet MFP M139w", "note=Soggiorno", "flag"] {
+        for s in ["ty=HP LaserJet MFP M139w", "note=Living room", "flag"] {
             let u = Array(s.utf8); bytes.append(UInt8(u.count)); bytes += u
         }
         let txt = bytes.withUnsafeBufferPointer { BonjourScanner.parseTXT($0.baseAddress, length: $0.count) }
         #expect(txt["ty"] == "HP LaserJet MFP M139w")
-        #expect(txt["note"] == "Soggiorno")
+        #expect(txt["note"] == "Living room")
         #expect(BonjourScanner.model(fromTXT: txt) == "HP LaserJet MFP M139w")
-        // Lunghezza oltre il buffer: si ferma senza leggere fuori.
+        // Length beyond the buffer: stops without reading out of bounds.
         let bad: [UInt8] = [200, 65, 66]
         #expect(bad.withUnsafeBufferPointer { BonjourScanner.parseTXT($0.baseAddress, length: $0.count) }.isEmpty)
     }
 
     @Test func unescapesDNSNames() {
-        #expect(unescapeDNS("Stampante\\032HP\\.casa") == "Stampante HP.casa")
+        #expect(unescapeDNS("Printer\\032HP\\.home") == "Printer HP.home")
         #expect(unescapeDNS("Caf\\195\\169") == "Café")
     }
 
     @Test func bestNamePrefersReadableNames() {
-        let d = BonjourDevice(ip: "x", names: ["FC9F5ED42C8A", "Cucina", "Sonos Era 100 (Cucina)"])
-        #expect(d.bestName == "Cucina")
+        let d = BonjourDevice(ip: "x", names: ["FC9F5ED42C8A", "Kitchen", "Sonos Era 100 (Kitchen)"])
+        #expect(d.bestName == "Kitchen")
         let tv = BonjourDevice(ip: "y", names: ["Smart-TV-Pro-e21d560af4e953b60014a2a5671cc975"], model: "Smart TV Pro")
-        #expect(tv.bestName == "Smart TV Pro", "nome generato → modello")
+        #expect(tv.bestName == "Smart TV Pro", "generated name → model")
     }
 
     @Test func kindFromBonjourServices() {
@@ -34,7 +34,7 @@ import Testing
             ScanKit.Host(ip: "10.0.0.9", hostnames: [hostname], model: model, bonjourServices: services).kind
         }
         #expect(kind(["_ipp._tcp", "_http._tcp"]) == .printer)
-        #expect(kind(["_googlecast._tcp"], hostname: "camera.da.letto.lan") == .tv, "Bonjour vince sul nome «camera»")
+        #expect(kind(["_googlecast._tcp"], hostname: "camera.da.letto.lan") == .tv, "Bonjour beats the name \"camera\"")
         #expect(kind(["_sonos._tcp", "_airplay._tcp"]) == .speaker)
         #expect(kind(["_shelly._tcp", "_http._tcp"]) == .iot)
         #expect(kind(["_companion-link._tcp"], model: "iPhone15,2") == .phone)
@@ -46,15 +46,15 @@ import Testing
         let engine = ScanEngine(nmapPath: "/usr/bin/true")
         let hosts = engine.enrich([ScanKit.Host(ip: "10.0.0.50"), ScanKit.Host(ip: local)], arp: [:], bonjour: [
             "10.0.0.50": BonjourDevice(ip: "10.0.0.50", names: ["HP LaserJet MFP M140w (F62306)"], services: ["_ipp._tcp"], model: "HP LaserJet"),
-            "127.0.0.1": BonjourDevice(ip: "127.0.0.1", names: ["MacBook Air di Max"], services: ["_airplay._tcp"], model: "MacBookAir10,1"),
+            "127.0.0.1": BonjourDevice(ip: "127.0.0.1", names: ["Test MacBook Air"], services: ["_airplay._tcp"], model: "MacBookAir10,1"),
         ])
         let printer = hosts.first { $0.ip == "10.0.0.50" }
         #expect(printer?.displayName == "HP LaserJet MFP M140w (F62306)")
         #expect(printer?.kind == .printer)
-        #expect(hosts.first { $0.ip == local }?.bonjourName == "MacBook Air di Max")
+        #expect(hosts.first { $0.ip == local }?.bonjourName == "Test MacBook Air")
     }
 
-    /// Facoltativo, sulla rete reale: SUBNETSCOUT_LIVE=1 swift test --filter liveBonjour
+    /// Optional, on the real network: SUBNETSCOUT_LIVE=1 swift test --filter liveBonjour
     @Test(.enabled(if: ProcessInfo.processInfo.environment["SUBNETSCOUT_LIVE"] == "1"))
     func liveBonjour() {
         let found = BonjourScanner.discover(timeout: 4)

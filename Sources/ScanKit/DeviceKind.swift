@@ -1,6 +1,6 @@
 import Foundation
 
-/// Classificazione euristica del dispositivo da produttore, hostname, porte e OS.
+/// Heuristic device classification from vendor, hostname, ports and OS.
 public enum DeviceKind: String, Codable, Sendable, CaseIterable {
     case router, mac, computer, phone, printer, nas, camera, tv, speaker, iot, server, virtualMachine, unknown
 
@@ -44,7 +44,7 @@ public enum DeviceKind: String, Codable, Sendable, CaseIterable {
 extension Host {
     public var kind: DeviceKind {
         if isGateway { return .router }
-        // I servizi Bonjour sono il segnale più affidabile: li annuncia il dispositivo stesso.
+        // Bonjour services are the most reliable signal: the device announces them itself.
         let bj = Set(bonjourServices ?? [])
         let m = (model ?? "").lowercased()
         if !bj.isDisjoint(with: ["_ipp._tcp", "_ipps._tcp", "_printer._tcp", "_pdl-datastream._tcp", "_uscan._tcp"]) { return .printer }

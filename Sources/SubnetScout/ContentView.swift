@@ -3,7 +3,7 @@ import ScanKit
 
 struct ContentView: View {
     @Environment(AppModel.self) private var model
-    /// Chi aveva già accettato l'avviso nelle versioni precedenti non rivede la configurazione.
+    /// Whoever had already accepted the notice in earlier versions does not see the setup again.
     @AppStorage("onboardingDone") private var onboardingDone = UserDefaults.standard.bool(forKey: "acceptedDisclaimer")
 
     var body: some View {

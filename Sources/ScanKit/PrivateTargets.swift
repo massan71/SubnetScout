@@ -1,8 +1,8 @@
 import Foundation
 import Darwin
 
-/// Limita i target a reti private: il helper root non deve poter essere usato
-/// per scansionare indirizzi pubblici (anche se un client riuscisse a parlargli).
+/// Restricts targets to private networks: the root helper must not be usable
+/// to scan public addresses (even if a client managed to talk to it).
 public enum PrivateTargets {
     public enum Rejection: LocalizedError, Equatable {
         case notPrivate(String)
@@ -24,9 +24,9 @@ public enum PrivateTargets {
         (0xA9FE_0000, 0xA9FE_FFFF), (0x6440_0000, 0x647F_FFFF), (0x7F00_0000, 0x7FFF_FFFF),
     ]
 
-    /// Verifica i target e restituisce quelli da passare a nmap: gli hostname sono
-    /// sostituiti dagli indirizzi risolti (tutti privati), così una risposta DNS
-    /// diversa al momento della scansione non può portare fuori dalla LAN.
+    /// Checks the targets and returns the ones to pass to nmap: hostnames are
+    /// replaced by the resolved addresses (all private), so a different DNS answer
+    /// at scan time cannot lead outside the LAN.
     public static func validate(_ targets: [String]) throws -> [String] {
         var out: [String] = []
         for t in targets {
@@ -57,8 +57,8 @@ public enum PrivateTargets {
         ipv4Blocks.contains { lo >= $0.0 && hi <= $0.1 }
     }
 
-    /// Intervallo coperto da un target IPv4 nmap: "10.0.0.1", "10.0.0.0/24",
-    /// "10.0.1.1-50", "10.0.0-3.*", "192.168.1.1,5,9". nil se non è IPv4.
+    /// Range covered by an nmap IPv4 target: "10.0.0.1", "10.0.0.0/24",
+    /// "10.0.1.1-50", "10.0.0-3.*", "192.168.1.1,5,9". nil if it is not IPv4.
     static func ipv4Span(_ t: String) -> (UInt32, UInt32)? {
         if let slash = t.firstIndex(of: "/") {
             guard let base = IPv4.parse(String(t[..<slash])), let p = Int(t[t.index(after: slash)...]), (0...32).contains(p)
@@ -99,7 +99,7 @@ public enum PrivateTargets {
         return (mn, mx)
     }
 
-    /// fe80::/10 (link-local), fc00::/7 (ULA), ::1. Con prefisso, il blocco deve restare dentro.
+    /// fe80::/10 (link-local), fc00::/7 (ULA), ::1. With a prefix, the block must stay inside.
     static func isPrivateIPv6(_ t: String) -> Bool {
         var addrPart = t, prefix = 128
         if let slash = t.firstIndex(of: "/") {

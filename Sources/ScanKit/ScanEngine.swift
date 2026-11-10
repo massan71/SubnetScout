@@ -1,6 +1,6 @@
 import Foundation
 
-/// Orchestrazione completa: nmap → parsing → arricchimento (MAC, produttore, gateway) → audit.
+/// Full orchestration: nmap → parsing → enrichment (MAC, vendor, gateway) → audit.
 public struct ScanEngine: Sendable {
     public let nmapPath: String
     private let vendors: MACVendorDB
@@ -10,7 +10,7 @@ public struct ScanEngine: Sendable {
         self.vendors = MACVendorDB(nmapPath: nmapPath)
     }
 
-    /// Scansione con nmap locale (utente normale o con richiesta password).
+    /// Scan with local nmap (normal user or with a password prompt).
     public func scan(targets: [String], profile: ScanProfile, privileged: Bool, previous: ScanResult? = nil,
                      onProgress: @escaping @Sendable (Double) -> Void = { _ in }) async throws -> ScanResult {
         try await scan(targets: targets, profile: profile,
@@ -18,15 +18,15 @@ public struct ScanEngine: Sendable {
                        previous: previous, onProgress: onProgress)
     }
 
-    /// Fornisce tabella ARP e router UPnP (dall'app o dal helper).
+    /// Provides the ARP table and UPnP routers (from the app or from the helper).
     public typealias ProbeProvider = @Sendable () async -> NetworkProbe
 
-    /// Scansione con un esecutore qualsiasi (es. il privileged helper).
+    /// Scan with any executor (e.g. the privileged helper).
     /// - Parameters:
-    ///   - previous: scansione precedente dello stesso target, per le regole che
-    ///     confrontano lo stato della rete (es. MAC del gateway cambiato).
-    ///   - probe: chi legge ARP e UPnP; di default l'app stessa (soggetta al permesso
-    ///     «Rete locale»). Con il helper attivo l'app passa la sonda del helper.
+    ///   - previous: previous scan of the same target, for the rules that
+    ///     compare the network state (e.g. gateway MAC changed).
+    ///   - probe: who reads ARP and UPnP; by default the app itself (subject to the
+    ///     Local Network permission). With the helper active the app passes the helper's probe.
     public func scan(targets: [String], profile: ScanProfile, executor: any NmapExecutor,
                      previous: ScanResult? = nil, inspectUPnP: Bool = true, probe: ProbeProvider? = nil,
                      cveLookup: NVDClient? = nil,
@@ -42,7 +42,7 @@ public struct ScanEngine: Sendable {
         context.upnpError = probe.upnpError
         context.upnpProbed = inspectUPnP && probe.upnpError == nil
 
-        // Vulnerabilità note: solo prodotto e versione vanno a NVD.
+        // Known vulnerabilities: only product and version go to NVD.
         var vulnerabilities: [String: [CVEEntry]]?
         var cveError: String?
         let queries = CVEAudit.queries(for: hosts)
@@ -79,7 +79,7 @@ public struct ScanEngine: Sendable {
     public static let localNetworkMessage =
         "macOS is blocking local network access for SubnetScout: allow it in System Settings › Privacy & Security › Local Network, or install the helper (it is not subject to this permission)."
 
-    /// Gateway, lease DHCP e offerte DHCP (se è stato eseguito broadcast-dhcp-discover).
+    /// Gateway, DHCP lease and DHCP offers (if broadcast-dhcp-discover ran).
     func networkContext(hosts: [Host], runScripts: [ScriptOutput], nmapArgs: String, arp: [String: String]) -> NetworkContext {
         let route = NetworkInfo.defaultRoute()
         let iface = route.interface.flatMap { name in NetworkInfo.interfaces().first { $0.name == name } }
@@ -91,10 +91,10 @@ public struct ScanEngine: Sendable {
                                      gatewayMAC: gatewayMAC, dhcpServer: lease?.server,
                                      dhcpRouters: lease?.routers ?? [], dnsServers: lease?.dnsServers ?? [],
                                      dhcpOffers: dhcpScript.map { DHCPOffer.parse($0.output) } ?? [],
-                                     // Senza risposte lo script non produce output: conta che sia stato eseguito.
+                                     // With no replies the script produces no output: what matters is that it ran.
                                      dhcpProbed: dhcpScript != nil || nmapArgs.contains("broadcast-dhcp-discover"))
-        // Su una LAN attiva la tabella ARP contiene almeno il gateway: se è vuota,
-        // macOS sta negando il permesso «Rete locale» a chi ha fatto la sonda.
+        // On an active LAN the ARP table contains at least the gateway: if it is empty,
+        // macOS is denying the Local Network permission to whoever ran the probe.
         context.localNetworkBlocked = route.gateway != nil && iface != nil && arp.isEmpty
         return context
     }
@@ -112,7 +112,7 @@ public struct ScanEngine: Sendable {
         let localIPs = Set(NetworkInfo.interfaces().map(\.ip))
         return hosts.map { h in
             var h = h
-            // Questo Mac si annuncia su 127.0.0.1: lo si abbina al suo indirizzo reale.
+            // This Mac announces itself on 127.0.0.1: match it to its real address.
             if let b = bonjour[h.ip] ?? (localIPs.contains(h.ip) ? bonjour["127.0.0.1"] : nil) {
                 h.bonjourName = b.bestName
                 h.model = b.model

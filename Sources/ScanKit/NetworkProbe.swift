@@ -1,17 +1,17 @@
 import Foundation
 
-/// Dati raccolti «toccando» la rete locale: tabella ARP e router UPnP.
+/// Data collected by "touching" the local network: ARP table and UPnP routers.
 ///
-/// macOS può negare all'app il permesso «Rete locale» (e lo fa in silenzio);
-/// il helper root, come daemon di sistema, non è soggetto a quel permesso.
-/// Per questo la sonda può girare sia nell'app sia nel helper.
+/// macOS can deny the app the Local Network permission (and does so silently);
+/// the root helper, as a system daemon, is not subject to that permission.
+/// That is why the probe can run both in the app and in the helper.
 public struct NetworkProbe: Codable, Sendable, Equatable {
     public var arp: [String: String]
     public var upnpGateways: [UPnPGateway]
     public var upnpError: String?
-    /// Dispositivi annunciati via Bonjour/mDNS, per IP. nil nei helper precedenti alla 0.5.0.
+    /// Devices announced over Bonjour/mDNS, by IP. nil from helpers older than 0.5.0.
     public var bonjour: [String: BonjourDevice]?
-    /// "helper" o "app": chi ha eseguito la sonda.
+    /// "helper" or "app": who ran the probe.
     public var source: String
 
     public init(arp: [String: String], upnpGateways: [UPnPGateway], upnpError: String?, source: String) {
@@ -21,15 +21,15 @@ public struct NetworkProbe: Codable, Sendable, Equatable {
         self.source = source
     }
 
-    /// true se la tabella ARP è vuota pur essendoci un gateway: segno che macOS
-    /// blocca l'accesso alla rete locale a chi ha eseguito la sonda.
+    /// true if the ARP table is empty even though there is a gateway: a sign that macOS
+    /// is blocking local network access for whoever ran the probe.
     public var looksBlocked: Bool { arp.isEmpty && NetworkInfo.defaultGateway() != nil }
 
     public static func run(source: String, inspectUPnP: Bool = true) async -> NetworkProbe {
         let arp = NetworkInfo.arpTable()
         let gateway = NetworkInfo.defaultGateway()
         var probe = NetworkProbe(arp: arp, upnpGateways: [], upnpError: nil, source: source)
-        // Bonjour in parallelo con UPnP (attende qualche secondo le risposte).
+        // Bonjour in parallel with UPnP (waits a few seconds for replies).
         let bonjourTask = Task.detached { BonjourScanner.discover(timeout: 4) }
         if arp.isEmpty, gateway != nil {
             probe.upnpError = ScanEngine.localNetworkMessage

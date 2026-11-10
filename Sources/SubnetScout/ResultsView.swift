@@ -5,7 +5,7 @@ struct ResultsView: View {
     @Environment(AppModel.self) private var model
     let result: ScanResult
 
-    enum Mode: String, CaseIterable { case devices = "Devices", findings = "Issues", network = "Network" }
+    enum Mode: String, CaseIterable { case devices = "Devices", findings = "Issues", network = "Network", map = "Map" }
     @State private var search = ""
     @State private var onlyIssues = false
     @State private var sortOrder = [KeyPathComparator(\HostRow.ipKey)]
@@ -18,7 +18,7 @@ struct ResultsView: View {
             }
             if result.hosts.count > 3,
                result.hosts.filter({ !model.isTrusted($0) }).count * 5 >= result.hosts.count * 4 {
-                // Quasi tutto è «NUOVO»: spiega a cosa serve e offri la scorciatoia.
+                // Almost everything is "NEW": explain what it is for and offer the shortcut.
                 HStack(spacing: 10) {
                     Image(systemName: "lightbulb").foregroundStyle(.yellow)
                     Text("Mark the devices you recognize as known: from then on, “NEW” and notifications only refer to devices that are really new.")
@@ -36,9 +36,10 @@ struct ResultsView: View {
             case .devices: hostTable
             case .findings: findingsList
             case .network: NetworkPanel(result: result)
+            case .map: NetworkMapView(result: result)
             }
         }
-        // In caso di contenuto troppo alto si taglia il fondo (la tabella scorre), mai l'intestazione.
+        // If the content is too tall the bottom is cut (the table scrolls), never the header.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .searchable(text: $search, placement: .toolbar, prompt: "Search IP, name, vendor, service")
         .navigationTitle(result.target)
@@ -66,7 +67,7 @@ struct ResultsView: View {
         .padding(.vertical, 8)
     }
 
-    // MARK: Dispositivi
+    // MARK: Devices
 
     private var rows: [HostRow] {
         let risk = result.risk
@@ -146,7 +147,7 @@ struct ResultsView: View {
         }
     }
 
-    // MARK: Problemi
+    // MARK: Issues
 
     private var findingsList: some View {
         @Bindable var model = model
