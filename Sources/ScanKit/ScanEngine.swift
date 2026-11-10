@@ -29,6 +29,8 @@ public struct ScanEngine: Sendable {
     ///     «Rete locale»). Con il helper attivo l'app passa la sonda del helper.
     public func scan(targets: [String], profile: ScanProfile, executor: any NmapExecutor,
                      previous: ScanResult? = nil, inspectUPnP: Bool = true, probe: ProbeProvider? = nil,
+                     cveLookup: NVDClient? = nil,
+                     onStatus: @escaping @Sendable (String) -> Void = { _ in },
                      onProgress: @escaping @Sendable (Double) -> Void = { _ in }) async throws -> ScanResult {
         let started = Date()
         let xml = try await executor.execute(profile: profile, targets: targets, onProgress: onProgress)
@@ -39,7 +41,23 @@ public struct ScanEngine: Sendable {
         context.upnpGateways = probe.upnpGateways
         context.upnpError = probe.upnpError
         context.upnpProbed = inspectUPnP && probe.upnpError == nil
-        return ScanResult(
+
+        // Vulnerabilità note: solo prodotto e versione vanno a NVD.
+        var vulnerabilities: [String: [CVEEntry]]?
+        var cveError: String?
+        let queries = CVEAudit.queries(for: hosts)
+        if let cveLookup, profile.scansPorts, !queries.isEmpty {
+            do {
+                vulnerabilities = try await cveLookup.lookup(queries) { i, n in onStatus("Ricerca CVE \(i) di \(n)") }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                cveError = error.localizedDescription
+            }
+        }
+        let cveFindings = vulnerabilities.map { CVEAudit.findings(hosts: hosts, vulnerabilities: $0) } ?? []
+
+        var result = ScanResult(
             target: targets.joined(separator: " "),
             profile: profile,
             privileged: executor.isPrivileged,
@@ -49,9 +67,13 @@ public struct ScanEngine: Sendable {
             nmapArgs: run.args,
             hosts: hosts,
             findings: Self.sorted(AuditEngine.audit(hosts)
-                                  + NetworkAudit.audit(context: context, hosts: hosts, previous: previous)),
+                                  + NetworkAudit.audit(context: context, hosts: hosts, previous: previous)
+                                  + cveFindings),
             network: context
         )
+        result.vulnerabilities = vulnerabilities
+        result.cveError = cveError
+        return result
     }
 
     public static let localNetworkMessage =

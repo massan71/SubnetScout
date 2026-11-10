@@ -49,6 +49,7 @@ public enum NmapXMLParser {
         var runScripts: [ScriptOutput] = []
 
         private var inRunScript = false
+        private var cpeText: String?
         private var host: Host?
         private var hostUp = false
         private var port: PortInfo?
@@ -86,6 +87,8 @@ public enum NmapXMLParser {
             case "state" where port != nil:
                 port?.state = a["state"] ?? "unknown"
                 port?.reason = a["reason"]
+            case "cpe" where port?.service != nil:
+                cpeText = ""
             case "service" where port != nil:
                 port?.service = ServiceInfo(name: a["name"], product: a["product"], version: a["version"],
                                             extraInfo: a["extrainfo"], tunnel: a["tunnel"])
@@ -114,8 +117,18 @@ public enum NmapXMLParser {
             }
         }
 
+        func parser(_ parser: XMLParser, foundCharacters string: String) {
+            if cpeText != nil { cpeText! += string }
+        }
+
         func parser(_ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?) {
             switch name {
+            case "cpe":
+                if let cpe = cpeText?.trimmingCharacters(in: .whitespacesAndNewlines), !cpe.isEmpty, port?.service != nil {
+                    let existing = port?.service?.cpes ?? []
+                    port?.service?.cpes = existing + [cpe]
+                }
+                cpeText = nil
             case "port":
                 if let p = port { host?.ports.append(p) }
                 port = nil

@@ -78,6 +78,28 @@ public enum ReportGenerator {
         }
         body += "</section>"
 
+        // Vulnerabilità note
+        if let vulns = r.vulnerabilities {
+            var rows = ""
+            for h in r.hosts {
+                for p in h.openPorts {
+                    for e in CVEAudit.entries(for: p, in: vulns).prefix(15) {
+                        rows += "<tr><td>\(esc(h.displayName)) <code>\(esc(h.ip)):\(esc(p.id))</code></td>"
+                            + "<td><a href=\"\(esc(e.url.absoluteString))\"><code>\(esc(e.id))</code></a>\(e.knownExploited ? " <span class=\"tag new\">KEV</span>" : "")</td>"
+                            + "<td>\(e.cvss.map { String(format: "%.1f", $0) } ?? "n/d")</td>"
+                            + "<td>\(esc(String(e.summary.prefix(220))))</td></tr>"
+                    }
+                }
+            }
+            body += "<section><h2>Vulnerabilità note (CVE)</h2>"
+            body += rows.isEmpty
+                ? "<p class=\"muted\">Nessuna CVE nota per le versioni rilevate.</p>"
+                : "<p class=\"muted\">Fonte: NVD (NIST). Corrispondenza basata sulla versione dichiarata dai servizi: da verificare. KEV = sfruttata attivamente secondo CISA.</p><table><thead><tr><th>Servizio</th><th>CVE</th><th>CVSS</th><th>Descrizione</th></tr></thead><tbody>\(rows)</tbody></table>"
+            body += "</section>"
+        } else if let err = r.cveError {
+            body += "<section><h2>Vulnerabilità note (CVE)</h2><p class=\"muted\">Ricerca non completata: \(esc(err))</p></section>"
+        }
+
         // Inventario
         body += """
         <section><h2>Inventario dispositivi</h2>

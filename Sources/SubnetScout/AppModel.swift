@@ -29,6 +29,8 @@ final class AppModel {
     private(set) var scanStartedAt: Date?
     /// es. "Standard + audit · helper"
     private(set) var scanSummary = ""
+    /// Fase dopo nmap, es. «Ricerca CVE 3 di 12».
+    private(set) var scanStage = ""
     private(set) var current: ScanResult?
     private(set) var diff: ScanDiff?
     private(set) var history: [ScanResult] = []
@@ -166,18 +168,27 @@ final class AppModel {
             return await NetworkProbe.run(source: "app")
         } : nil
 
+        // CVE da NVD: solo se attivata nelle impostazioni (invia prodotto e versione).
+        let cveLookup: NVDClient? = CVESettings.enabled
+            ? NVDClient(options: .init(apiKey: CVESettings.apiKey())) : nil
+        scanStage = ""
+
         // Scansione precedente dello stesso target: serve per le regole che confrontano la rete.
         let previous = history.filter { $0.target == targets.joined(separator: " ") }.max { $0.finishedAt < $1.finishedAt }
 
         scanTask = Task {
             do {
-                let result = try await engine.scan(targets: targets, profile: profile, executor: executor,
-                                                   previous: previous, probe: probe) { p in
-                    Task { @MainActor in
-                        guard case .scanning = self.phase else { return }
-                        self.phase = .scanning(progress: p)
-                    }
-                }
+                let result = try await engine.scan(
+                    targets: targets, profile: profile, executor: executor,
+                    previous: previous, probe: probe, cveLookup: cveLookup,
+                    onStatus: { status in Task { @MainActor in self.scanStage = status } },
+                    onProgress: { p in
+                        Task { @MainActor in
+                            guard case .scanning = self.phase else { return }
+                            self.phase = .scanning(progress: p)
+                        }
+                    })
+                scanStage = ""
                 try? store.save(result)
                 history.insert(result, at: 0)
                 show(result)

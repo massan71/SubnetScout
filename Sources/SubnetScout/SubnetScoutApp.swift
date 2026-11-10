@@ -37,6 +37,9 @@ struct SubnetScoutApp: App {
                     .disabled(model.current == nil)
             }
         }
+        Settings {
+            SettingsView()
+        }
     }
 }
 

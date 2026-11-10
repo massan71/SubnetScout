@@ -3,6 +3,7 @@ import ScanKit
 
 struct SidebarView: View {
     @Environment(AppModel.self) private var model
+    @AppStorage(CVESettings.enabledKey) private var cveEnabled = false
 
     // Form raggruppato invece di List(.sidebar): le righe si adattano ai testi
     // lunghi (descrizioni, messaggi del helper) invece di troncarli.
@@ -48,6 +49,15 @@ struct SidebarView: View {
                         }
                     }
                     HelperStatusView()
+                    Toggle(isOn: $cveEnabled) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Cerca vulnerabilità note (CVE)")
+                            Text("Invia a NVD solo nome e versione dei software, mai dati dei dispositivi. Opzioni in Impostazioni (⌘,).")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .disabled(!model.profile.scansPorts)
                 }
 
                 Section {
@@ -197,7 +207,7 @@ struct ScanButton: View {
                 // il tempo trascorso rassicura che la scansione sta andando avanti.
                 if let start = model.scanStartedAt {
                     TimelineView(.periodic(from: start, by: 1)) { context in
-                        Text("In corso da \(Duration.seconds(Int(context.date.timeIntervalSince(start))).formatted(.time(pattern: .minuteSecond))) · \(model.scanSummary)")
+                        Text("In corso da \(Duration.seconds(Int(context.date.timeIntervalSince(start))).formatted(.time(pattern: .minuteSecond))) · \(model.scanStage.isEmpty ? model.scanSummary : model.scanStage)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .monospacedDigit()

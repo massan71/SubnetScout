@@ -48,9 +48,12 @@ public struct ServiceInfo: Codable, Hashable, Sendable {
     public var extraInfo: String?
     /// "ssl" quando nmap ha rilevato un servizio dentro TLS.
     public var tunnel: String?
+    /// Identificativi CPE 2.2 riportati da nmap (es. "cpe:/a:openbsd:openssh:9.6p1").
+    public var cpes: [String]?
 
     public init(name: String? = nil, product: String? = nil, version: String? = nil,
-                extraInfo: String? = nil, tunnel: String? = nil) {
+                extraInfo: String? = nil, tunnel: String? = nil, cpes: [String]? = nil) {
+        self.cpes = cpes
         self.name = name
         self.product = product
         self.version = version
@@ -199,6 +202,10 @@ public struct ScanResult: Codable, Hashable, Sendable, Identifiable {
     public var findings: [Finding]
     /// Contesto di rete (gateway, DHCP, DNS, UPnP). Assente nelle scansioni salvate dalla 0.1.0.
     public var network: NetworkContext?
+    /// CVE note per CPE (chiave: CPE 2.3 interrogato). nil se la ricerca non è stata eseguita.
+    public var vulnerabilities: [String: [CVEEntry]]?
+    /// Motivo per cui la ricerca CVE non è stata completata (es. NVD non raggiungibile).
+    public var cveError: String?
 
     public init(id: UUID = UUID(), target: String, profile: ScanProfile, privileged: Bool,
                 startedAt: Date, finishedAt: Date, nmapVersion: String? = nil, nmapArgs: String? = nil,

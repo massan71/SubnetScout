@@ -14,6 +14,7 @@ struct HostDetailView: View {
                 identity
                 findings
                 if result.profile.scansPorts { ports }
+                cves
                 if !host.hostScripts.isEmpty { hostScripts }
             }
             .padding(20)
@@ -143,6 +144,57 @@ struct HostDetailView: View {
                     }
                 }
             }
+        }
+    }
+
+    /// CVE note per i servizi di questo dispositivo.
+    @ViewBuilder
+    private var cves: some View {
+        let perPort = host.openPorts.map { ($0, CVEAudit.entries(for: $0, in: result.vulnerabilities)) }.filter { !$1.isEmpty }
+        if !perPort.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Vulnerabilità note (CVE)").font(.headline)
+                Text("Dalla versione dichiarata dal servizio: da verificare sul dispositivo.")
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(perPort, id: \.0.id) { port, entries in
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(entries) { e in
+                                HStack(alignment: .top, spacing: 8) {
+                                    SeverityPill(severity: e.subnetScoutSeverity,
+                                                 text: e.cvss.map { String(format: "%.1f", $0) } ?? "n/d")
+                                        .frame(width: 44, alignment: .leading)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack(spacing: 6) {
+                                            Link(e.id, destination: e.url).font(.callout.monospaced())
+                                            if e.knownExploited {
+                                                Text("SFRUTTATA ATTIVAMENTE")
+                                                    .font(.system(size: 9, weight: .heavy))
+                                                    .padding(.horizontal, 4).padding(.vertical, 1)
+                                                    .foregroundStyle(.white).background(.red, in: Capsule())
+                                                    .help(e.kevName ?? "Nel catalogo CISA KEV")
+                                            }
+                                            if let d = e.published { Text(d).font(.caption).foregroundStyle(.tertiary) }
+                                        }
+                                        Text(e.summary).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.leading, 8)
+                    } label: {
+                        HStack {
+                            Text(port.id).font(.body.monospaced())
+                            Text(port.service?.productSummary ?? "").foregroundStyle(.secondary)
+                            Spacer()
+                            Text("\(entries.count) CVE").foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        } else if let error = result.cveError {
+            Label("Ricerca CVE non completata: \(error)", systemImage: "exclamationmark.triangle")
+                .font(.caption).foregroundStyle(.orange)
         }
     }
 
