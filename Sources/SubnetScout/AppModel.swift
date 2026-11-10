@@ -34,6 +34,8 @@ final class AppModel {
     private(set) var current: ScanResult?
     private(set) var diff: ScanDiff?
     private(set) var history: [ScanResult] = []
+    /// Avviso sullo storico (es. scansioni cifrate non decifrabili).
+    private(set) var historyWarning: String?
     var selectedHostID: Host.ID?
     var selectedHistoryID: ScanResult.ID?
 
@@ -52,6 +54,10 @@ final class AppModel {
         trusted = Set(UserDefaults.standard.stringArray(forKey: "trustedDevices") ?? [])
         refreshEnvironment()
         history = store.loadAll()
+        let unreadable = store.unreadableCount()
+        if unreadable > 0 {
+            historyWarning = "\(unreadable) scansioni salvate non sono leggibili: la chiave di cifratura nel Portachiavi manca o è cambiata."
+        }
         if let last = history.first { show(last) }
         Task { await refreshHelper() }
         // Dopo l'approvazione in Impostazioni di Sistema l'utente torna all'app: ricontrolla.

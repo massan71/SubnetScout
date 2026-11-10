@@ -237,6 +237,7 @@ public actor NVDClient {
 
     private func store(_ entries: [CVEEntry], for cpe: String) {
         try? FileManager.default.createDirectory(at: options.cacheDirectory, withIntermediateDirectories: true)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: options.cacheDirectory.path)
         if let data = try? JSONEncoder().encode(CacheFile(cpe: cpe, fetched: Date(), entries: entries)) {
             try? data.write(to: cacheURL(cpe), options: [.atomic])
         }

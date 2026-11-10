@@ -72,6 +72,10 @@ struct SidebarView: View {
 
                 if !model.history.isEmpty {
                     Section("Storico") {
+                        if let warning = model.historyWarning {
+                            Label(warning, systemImage: "lock.trianglebadge.exclamationmark")
+                                .font(.caption).foregroundStyle(.orange)
+                        }
                         VStack(spacing: 2) {
                             ForEach(model.history) { scan in
                                 Button { model.show(scan) } label: {

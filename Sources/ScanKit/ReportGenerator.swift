@@ -141,6 +141,8 @@ public enum ReportGenerator {
         return """
         <!doctype html>
         <html lang="it"><head><meta charset="utf-8">
+        <meta http-equiv="Content-Security-Policy" content="\(csp)">
+        <meta name="referrer" content="no-referrer">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>SubnetScout · \(esc(r.target))</title>
         <style>\(css)</style></head>
@@ -191,6 +193,10 @@ public enum ReportGenerator {
         }
         return s
     }
+
+    /// Il report contiene testi presi dalla rete (banner, titoli web, descrizioni CVE):
+    /// sono già sanificati, ma la CSP impedisce comunque script e risorse esterne.
+    static let csp = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"
 
     static let css = """
     :root{--bg:#f6f7f9;--card:#fff;--fg:#1c1e21;--muted:#6b7280;--line:#e5e7eb;--code:#f1f3f5;

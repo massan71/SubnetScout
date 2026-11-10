@@ -63,6 +63,9 @@ enum NmapAdopter {
             }
         }
         try hardenTree(staging)
+        // La copia ora è di root (non più modificabile dall'utente): la si confronta
+        // con la ricevuta dell'installer prima di renderla attiva.
+        try InstallerReceipt.verify(root: staging.path)
 
         // Sostituzione atomica della copia precedente.
         let old = parent.appending(path: ".nmap-old-\(UUID().uuidString)")
