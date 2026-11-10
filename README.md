@@ -82,6 +82,7 @@ resta: per rimuoverla `sudo rm -rf "/Library/Application Support/SubnetScout"`.
 | **Audit** | ~35 regole: Telnet, FTP anonimo, SMBv1, firma SMB, TLS obsoleto o debole, DH deboli, certificati scaduti o self-signed, HTTPS senza HSTS, metodi HTTP rischiosi, RDP senza NLA, VNC senza password, DB esposti, API Docker, SNMP `public`, chiavi SSH deboli… |
 | **Rete** | MAC del gateway cambiato o condiviso da un altro IP (ARP spoofing), server DHCP non autorizzati (`broadcast-dhcp-discover`, come amministratore), DNS anomali, router UPnP e **porte aperte verso Internet** (lettura della tabella IGD), gestione del router accessibile |
 | **CVE** | Facoltativo e disattivato di default: i CPE rilevati da nmap (`-sV`) vengono cercati nel database NVD del NIST. Viene inviato solo prodotto e versione, mai dati dei dispositivi. Le risposte restano in cache 7 giorni, con badge per le CVE sfruttate attivamente (CISA KEV) e chiave API NVD facoltativa nel Portachiavi |
+| **Pianificazione** | Scansioni automatiche (ogni ora, ogni 6 ore, ogni giorno, ogni settimana) tramite l'helper, senza password. Notifiche solo quando cambia qualcosa (nuovi dispositivi, porte, problemi, CVE) e solo con conteggi. Icona nella barra dei menu e apertura all'accesso |
 | **Rischio** | Punteggio 0–100 per host e per rete, voto A–F |
 | **Storico** | Ogni scan viene salvato in `~/Library/Application Support/SubnetScout/Scans`. Il diff con lo scan precedente mostra nuovi dispositivi, porte aperte o chiuse e nuovi problemi |
 | **Dispositivi noti** | I dispositivi segnati come noti spariscono dal badge «NUOVO» |
@@ -113,7 +114,7 @@ Tests/ScanKitTests/       Swift Testing con fixture XML + scan reale di localhos
 - [x] Correlazione delle CVE dalle versioni dei servizi (API NVD, facoltativa)
 - [ ] Export PDF nativo (WKWebView + NSPrintOperation)
 - [ ] Scan programmati (`launchd`) e notifiche sui nuovi dispositivi
-- [ ] App nella menu bar
+- [x] App nella barra dei menu
 - [ ] Mappa visuale della rete
 - [x] Icona dell'app
 - [ ] Firma Developer ID e notarizzazione

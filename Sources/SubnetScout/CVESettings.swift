@@ -33,8 +33,8 @@ enum CVESettings {
     }
 }
 
-/// Finestra Impostazioni (⌘,).
-struct SettingsView: View {
+/// Scheda «Vulnerabilità» delle Impostazioni.
+struct CVESettingsView: View {
     @AppStorage(CVESettings.enabledKey) private var cveEnabled = false
     @State private var apiKey = ""
     @State private var saved = false
@@ -71,7 +71,6 @@ struct SettingsView: View {
             } header: { Text("NVD") }
         }
         .formStyle(.grouped)
-        .frame(width: 520)
         .onAppear { apiKey = CVESettings.apiKey() ?? "" }
     }
 }

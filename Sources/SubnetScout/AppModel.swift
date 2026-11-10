@@ -49,6 +49,12 @@ final class AppModel {
     private let store = ScanHistoryStore()
     private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var activationObserver: NSObjectProtocol?
+    @ObservationIgnored private var openScanObserver: NSObjectProtocol?
+    /// Scansioni programmate.
+    private(set) var scheduler: ScanScheduler!
+
+    /// Notifica interna per aprire una scansione (es. clic su una notifica).
+    static let openScanNotification = Notification.Name("SubnetScout.openScan")
 
     init() {
         trusted = Set(UserDefaults.standard.stringArray(forKey: "trustedDevices") ?? [])
@@ -66,6 +72,13 @@ final class AppModel {
         ) { [weak self] _ in
             Task { @MainActor in await self?.refreshHelper() }
         }
+        openScanObserver = NotificationCenter.default.addObserver(
+            forName: Self.openScanNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let id = note.object as? UUID else { return }
+            Task { @MainActor in self?.open(scanID: id) }
+        }
+        scheduler = ScanScheduler(model: self)
     }
 
     // MARK: Privileged helper
@@ -145,27 +158,34 @@ final class AppModel {
 
     // MARK: Scansione
 
+    enum ScanOrigin { case manual, scheduled }
+
     func startScan() {
-        guard !isScanning, let nmapPath else { return }
-        let targets: [String]
+        guard !isScanning else { return }
         do {
-            targets = try TargetParser.parse(target)
+            launch(targets: try TargetParser.parse(target), profile: profile, privileged: privileged, origin: .manual)
         } catch {
             phase = .failed(error.localizedDescription)
-            return
         }
+    }
+
+    /// Avvia una scansione. Usata dal pulsante e dalla pianificazione.
+    /// - Returns: false se non è partita (scansione già in corso, nmap assente).
+    @discardableResult
+    func launch(targets: [String], profile: ScanProfile, privileged: Bool, origin: ScanOrigin) -> Bool {
+        guard !isScanning, let nmapPath else { return false }
         let engine = ScanEngine(nmapPath: nmapPath)
-        let profile = profile
-        // Amministratore: helper se pronto (niente password, con avanzamento),
-        // altrimenti richiesta password a ogni scansione.
         // Il helper scansiona solo reti private: i target pubblici vanno con nmap locale.
         let helperForThis = usesHelper && PrivateTargets.allPrivate(targets)
+        // Le scansioni programmate non chiedono mai la password.
+        let askPassword = privileged && !helperForThis && origin == .manual
         let executor: any NmapExecutor = helperForThis
             ? HelperNmapExecutor(fullPrivileges: privileged)
-            : LocalNmapExecutor(nmapPath: nmapPath, askPassword: privileged)
+            : LocalNmapExecutor(nmapPath: nmapPath, askPassword: askPassword)
         phase = .scanning(progress: 0)
         scanStartedAt = Date()
-        scanSummary = profile.name + (helperForThis ? " · helper" : privileged ? " · password" : " · utente")
+        scanSummary = profile.name + (helperForThis ? " · helper" : askPassword ? " · password" : " · utente")
+            + (origin == .scheduled ? " · programmata" : "")
 
         // ARP e UPnP: con il helper attivo li legge lui (non è soggetto al permesso
         // «Rete locale», che macOS può negare all'app); se fallisce, li legge l'app.
@@ -181,8 +201,13 @@ final class AppModel {
 
         // Scansione precedente dello stesso target: serve per le regole che confrontano la rete.
         let previous = history.filter { $0.target == targets.joined(separator: " ") }.max { $0.finishedAt < $1.finishedAt }
+        let trustedNow = trusted
+        // Evita che App Nap rallenti una scansione con la finestra nascosta.
+        let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled],
+                                                             reason: "Scansione di rete")
 
         scanTask = Task {
+            defer { ProcessInfo.processInfo.endActivity(activity) }
             do {
                 let result = try await engine.scan(
                     targets: targets, profile: profile, executor: executor,
@@ -197,15 +222,28 @@ final class AppModel {
                 scanStage = ""
                 try? store.save(result)
                 history.insert(result, at: 0)
-                show(result)
+                if origin == .manual || current == nil || current?.target == result.target { show(result) }
                 phase = .idle
-                notify(result)
+                switch origin {
+                case .manual:
+                    notify(result)
+                case .scheduled:
+                    let summary = ChangeSummary(previous: previous, current: result, trusted: trustedNow)
+                    if ScheduleSettings.notify, !summary.isEmpty { Notifier.post(summary, scanID: result.id) }
+                }
             } catch is CancellationError {
                 phase = .idle
             } catch {
-                phase = .failed(error.localizedDescription)
+                // Le scansioni programmate falliscono in silenzio (ritentano al prossimo turno).
+                phase = origin == .manual ? .failed(error.localizedDescription) : .idle
             }
         }
+        return true
+    }
+
+    /// Apre la scansione indicata (es. dal clic su una notifica).
+    func open(scanID: UUID) {
+        if let scan = history.first(where: { $0.id == scanID }) { show(scan) }
     }
 
     func cancelScan() {
