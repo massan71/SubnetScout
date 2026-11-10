@@ -52,7 +52,7 @@ public struct NmapRunner: Sendable {
     public func run(arguments: [String], targets: [String], privileged: Bool,
                     onProgress: @escaping @Sendable (Double) -> Void = { _ in }) async throws -> Data {
         if privileged {
-            return try await runPrivileged(arguments: arguments, targets: targets)
+            return try await runPrivileged(arguments: arguments, targets: targets, onProgress: onProgress)
         }
         return try await runDirect(arguments: arguments, targets: targets, onProgress: onProgress)
     }
@@ -134,21 +134,26 @@ public struct NmapRunner: Sendable {
 
     // MARK: Amministratore
 
-    /// MVP: usa `do shell script … with administrator privileges`. Per un'app da
-    /// distribuire andrà sostituito da un privileged helper (SMAppService + XPC).
-    private func runPrivileged(arguments: [String], targets: [String]) async throws -> Data {
+    /// Senza helper: `do shell script … with administrator privileges`.
+    ///
+    /// nmap gira come root in background dentro uno script che lo sorveglia: se
+    /// l'app crea il file di annullamento, oppure se l'app termina (anche per un
+    /// crash), lo script uccide nmap. Così un'interruzione non lascia processi root
+    /// orfani. L'avanzamento si legge dall'XML che nmap scrive man mano.
+    private func runPrivileged(arguments: [String], targets: [String],
+                               onProgress: @escaping @Sendable (Double) -> Void) async throws -> Data {
         let tmp = FileManager.default.temporaryDirectory
-        let xmlURL = tmp.appending(path: "subnetscout-\(UUID().uuidString).xml")
-        let errURL = tmp.appending(path: "subnetscout-\(UUID().uuidString).err")
+        let id = UUID().uuidString
+        let xmlURL = tmp.appending(path: "subnetscout-\(id).xml")
+        let errURL = tmp.appending(path: "subnetscout-\(id).err")
+        let cancelURL = tmp.appending(path: "subnetscout-\(id).cancel")
         defer {
-            try? FileManager.default.removeItem(at: xmlURL)
-            try? FileManager.default.removeItem(at: errURL)
+            for url in [xmlURL, errURL, cancelURL] { try? FileManager.default.removeItem(at: url) }
         }
 
-        let argv = [nmapPath] + arguments + ["-oX", xmlURL.path, "--"] + targets
-        let shell = argv.map(Self.shellQuote).joined(separator: " ")
-            + " >/dev/null 2>" + Self.shellQuote(errURL.path)
-            + "; chmod 644 " + Self.shellQuote(xmlURL.path) + " " + Self.shellQuote(errURL.path)
+        let shell = Self.privilegedScript(nmapPath: nmapPath, arguments: arguments + ["--stats-every", "2s"],
+                                          targets: targets, xml: xmlURL.path, err: errURL.path,
+                                          cancel: cancelURL.path, appPID: getpid())
         let script = "do shell script \"\(Self.appleScriptEscape(shell))\" with administrator privileges"
 
         let osa = Process()
@@ -157,7 +162,15 @@ public struct NmapRunner: Sendable {
         let osaErr = Pipe()
         osa.standardError = osaErr
         osa.standardOutput = FileHandle.nullDevice
-        let box = ProcessBox(osa)
+
+        // Avanzamento: legge la coda dell'XML ogni 2 secondi.
+        let poller = Task.detached {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                if let tail = Self.tail(of: xmlURL, bytes: 4096), let p = Self.progress(in: tail) { onProgress(p) }
+            }
+        }
+        defer { poller.cancel() }
 
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
@@ -165,8 +178,8 @@ public struct NmapRunner: Sendable {
                 do { try osa.run() } catch { cont.resume(throwing: error) }
             }
         } onCancel: {
-            // Nota: termina osascript; il processo nmap root può proseguire fino alla fine.
-            box.terminate()
+            // Lo script root vede il file entro un secondo e termina nmap; osascript poi esce da solo.
+            FileManager.default.createFile(atPath: cancelURL.path, contents: nil)
         }
         try Task.checkCancellation()
 
@@ -180,7 +193,29 @@ public struct NmapRunner: Sendable {
             let errText = (try? String(contentsOf: errURL, encoding: .utf8)) ?? osaMessage
             throw NmapError.noOutput(stderr: errText)
         }
+        onProgress(1)
         return data
+    }
+
+    /// Script shell (una riga) eseguito come root.
+    static func privilegedScript(nmapPath: String, arguments: [String], targets: [String],
+                                 xml: String, err: String, cancel: String, appPID: Int32) -> String {
+        let argv = [nmapPath] + arguments + ["-oX", xml, "--"] + targets
+        let q = shellQuote
+        return argv.map(q).joined(separator: " ") + " >/dev/null 2>\(q(err)) & NP=$!; "
+            + "while kill -0 $NP 2>/dev/null; do "
+            + "if [ -e \(q(cancel)) ] || ! kill -0 \(appPID) 2>/dev/null; then kill $NP 2>/dev/null; fi; "
+            + "sleep 1; done; wait $NP; RC=$?; "
+            + "chmod 644 \(q(xml)) \(q(err)) 2>/dev/null; "
+            + "[ -e \(q(cancel)) ] && exit 0; exit $RC"
+    }
+
+    static func tail(of url: URL, bytes: Int) -> Data? {
+        guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? h.close() }
+        guard let end = try? h.seekToEnd() else { return nil }
+        try? h.seek(toOffset: end > UInt64(bytes) ? end - UInt64(bytes) : 0)
+        return try? h.readToEnd()
     }
 
     static func shellQuote(_ s: String) -> String {

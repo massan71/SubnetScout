@@ -47,9 +47,7 @@ struct SidebarView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    if model.privileged {
-                        HelperStatusView()
-                    }
+                    HelperStatusView()
                 }
 
                 Section {
@@ -114,9 +112,9 @@ struct HelperStatusView: View {
             switch model.helperState {
             case .unavailable:
                 note("key", .secondary,
-                     "Verrà chiesta la password. Il helper è disponibile solo avviando SubnetScout.app (scripts/bundle.sh).")
+                     "Come amministratore verrà chiesta la password. Il helper è disponibile solo avviando SubnetScout.app.")
             case .notInstalled:
-                note("key", .secondary, "Senza helper la password viene chiesta a ogni scansione.")
+                note("key", .secondary, "Con il helper tutte le scansioni sono più complete (macOS non le limita) e non serve mai la password.")
                 Button("Installa helper…") { model.installHelper() }
                     .disabled(model.helperBusy)
             case .needsApproval:
@@ -132,7 +130,7 @@ struct HelperStatusView: View {
                 }
                 .controlSize(.small)
             case .ready(_, nil, _):
-                note("checkmark.shield.fill", .green, "Helper attivo: nessuna password, con avanzamento.")
+                note("checkmark.shield.fill", .green, "Helper attivo: tutte le scansioni passano da lui, senza password.")
                 Button("Disinstalla helper") { model.uninstallHelper() }
                     .buttonStyle(.link)
                     .font(.caption)

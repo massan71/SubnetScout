@@ -233,7 +233,9 @@ final class AdminAuthorization: @unchecked Sendable {
 
 /// Esegue le scansioni tramite il helper root: niente password, con avanzamento.
 struct HelperNmapExecutor: NmapExecutor {
-    var isPrivileged: Bool { true }
+    /// Argomenti «come amministratore»; nmap gira comunque come root nel helper.
+    var fullPrivileges: Bool
+    var isPrivileged: Bool { fullPrivileges }
 
     func execute(profile: ScanProfile, targets: [String],
                  onProgress: @escaping @Sendable (Double) -> Void) async throws -> Data {
@@ -252,7 +254,7 @@ struct HelperNmapExecutor: NmapExecutor {
                     guard let helper = proxy as? ScanHelperProtocol else {
                         return once.resume(throwing: HelperError.connection("proxy non valido"))
                     }
-                    helper.runScan(id: id, profile: profile.rawValue, targets: targets) { data, error in
+                    helper.runScan(id: id, profile: profile.rawValue, targets: targets, fullPrivileges: fullPrivileges) { data, error in
                         if let data {
                             once.resume(returning: data)
                         } else {

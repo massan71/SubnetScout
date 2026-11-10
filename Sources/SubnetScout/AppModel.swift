@@ -66,7 +66,10 @@ final class AppModel {
     var helperIsReachable: Bool { if case .ready = helperState { true } else { false } }
 
     /// Come verrà eseguita la scansione con «Come amministratore» attivo.
-    var usesHelper: Bool { privileged && helperState.canScan }
+    /// Con il helper pronto tutte le scansioni passano da lui: niente password e
+    /// niente limiti del permesso «Rete locale». «Come amministratore» decide solo
+    /// gli argomenti (OS detection, UDP, sonda DHCP).
+    var usesHelper: Bool { helperState.canScan }
 
     func refreshHelper() async {
         helperState = await HelperClient.currentState()
@@ -147,12 +150,14 @@ final class AppModel {
         let profile = profile
         // Amministratore: helper se pronto (niente password, con avanzamento),
         // altrimenti richiesta password a ogni scansione.
-        let executor: any NmapExecutor = usesHelper
-            ? HelperNmapExecutor()
+        // Il helper scansiona solo reti private: i target pubblici vanno con nmap locale.
+        let helperForThis = usesHelper && PrivateTargets.allPrivate(targets)
+        let executor: any NmapExecutor = helperForThis
+            ? HelperNmapExecutor(fullPrivileges: privileged)
             : LocalNmapExecutor(nmapPath: nmapPath, askPassword: privileged)
-        phase = .scanning(progress: privileged && !usesHelper ? nil : 0)
+        phase = .scanning(progress: 0)
         scanStartedAt = Date()
-        scanSummary = profile.name + (usesHelper ? " · helper" : privileged ? " · password" : " · utente")
+        scanSummary = profile.name + (helperForThis ? " · helper" : privileged ? " · password" : " · utente")
 
         // ARP e UPnP: con il helper attivo li legge lui (non è soggetto al permesso
         // «Rete locale», che macOS può negare all'app); se fallisce, li legge l'app.

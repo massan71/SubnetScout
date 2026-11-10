@@ -7,7 +7,7 @@ public enum HelperConstants {
     public static let machServiceName = "net.sangalli.SubnetScout.helper"
     public static let plistName = "net.sangalli.SubnetScout.helper.plist"
     /// Da incrementare quando cambia il protocollo XPC.
-    public static let protocolVersion = "3"
+    public static let protocolVersion = "4"
     /// Diritto richiesto per operazioni che cambiano cosa il helper eseguirà come root.
     public static let adminRight = "system.privilege.admin"
 }
@@ -23,7 +23,9 @@ public enum HelperConstants {
     /// Copia /Applications/nmap.app in una cartella di root. Richiede un'autorizzazione
     /// amministratore (AuthorizationExternalForm) ottenuta dall'app con la password.
     func adoptNmap(authorization: Data, reply: @escaping @Sendable (_ nmapPath: String?, _ error: String?) -> Void)
-    func runScan(id: String, profile: String, targets: [String],
+    /// - Parameter fullPrivileges: true = argomenti «come amministratore» (OS detection,
+    ///   UDP, sonda DHCP); false = scansione semplice, comunque eseguita come root.
+    func runScan(id: String, profile: String, targets: [String], fullPrivileges: Bool,
                  reply: @escaping @Sendable (_ xml: Data?, _ error: String?) -> Void)
     func cancelScan(id: String)
     /// Tabella ARP e router UPnP letti dal helper (non soggetto al permesso «Rete locale»).
@@ -40,7 +42,7 @@ public enum HelperInterfaces {
     public static func service() -> NSXPCInterface {
         let i = NSXPCInterface(with: ScanHelperProtocol.self)
         i.setClasses(NSSet(array: [NSArray.self, NSString.self]) as! Set<AnyHashable>,
-                     for: #selector(ScanHelperProtocol.runScan(id:profile:targets:reply:)),
+                     for: #selector(ScanHelperProtocol.runScan(id:profile:targets:fullPrivileges:reply:)),
                      argumentIndex: 2, ofReply: false)
         return i
     }

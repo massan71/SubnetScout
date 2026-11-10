@@ -99,13 +99,14 @@ final class HelperService: NSObject, ScanHelperProtocol, @unchecked Sendable {
         }
     }
 
-    func runScan(id: String, profile: String, targets: [String],
+    func runScan(id: String, profile: String, targets: [String], fullPrivileges: Bool,
                  reply: @escaping @Sendable (Data?, String?) -> Void) {
         guard UUID(uuidString: id) != nil else { return reply(nil, "ID di scansione non valido.") }
         guard let profile = ScanProfile(rawValue: profile) else { return reply(nil, "Profilo non valido.") }
         let validated: [String]
         do {
-            validated = try TargetParser.parse(targets.joined(separator: " "))
+            // Sintassi + solo reti private (gli hostname diventano IP già verificati).
+            validated = try PrivateTargets.validate(TargetParser.parse(targets.joined(separator: " ")))
         } catch {
             return reply(nil, error.localizedDescription)
         }
@@ -117,7 +118,7 @@ final class HelperService: NSObject, ScanHelperProtocol, @unchecked Sendable {
         guard Self.acquireSlot() else { return reply(nil, "Troppe scansioni in corso.") }
 
         let client = ClientProxy(connection?.remoteObjectProxy as? ScanHelperClientProtocol)
-        let args = profile.arguments(privileged: true) + ["--datadir", nmap.dataDir]
+        let args = profile.arguments(privileged: fullPrivileges) + ["--datadir", nmap.dataDir]
         log.info("Scansione \(id, privacy: .public): profilo \(profile.rawValue, privacy: .public), \(validated.count) target")
 
         let task = Task { [weak self] in

@@ -221,3 +221,84 @@ typealias Host = ScanKit.Host
     }
 }
 
+
+/// Lo script root della modalità password deve fermare nmap su annullamento o se l'app muore.
+@Suite struct PrivilegedScriptTests {
+    func fakeNmap() throws -> (URL, URL) {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "ss-script-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let fake = dir.appending(path: "nmap")
+        try "#!/bin/sh\nexec sleep 30\n".write(to: fake, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fake.path)
+        return (dir, fake)
+    }
+
+    func run(_ script: String) throws -> (Process, Date) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", script]
+        try p.run()
+        return (p, Date())
+    }
+
+    @Test func cancelFileStopsNmap() throws {
+        let (dir, fake) = try fakeNmap()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let cancel = dir.appending(path: "x.cancel")
+        let script = NmapRunner.privilegedScript(nmapPath: fake.path, arguments: [], targets: ["127.0.0.1"],
+                                                 xml: dir.appending(path: "x.xml").path, err: dir.appending(path: "x.err").path,
+                                                 cancel: cancel.path, appPID: getpid())
+        let (p, start) = try run(script)
+        Thread.sleep(forTimeInterval: 1)
+        FileManager.default.createFile(atPath: cancel.path, contents: nil)
+        p.waitUntilExit()
+        #expect(Date().timeIntervalSince(start) < 5)
+        #expect(p.terminationStatus == 0)
+    }
+
+    @Test func deadAppStopsNmap() throws {
+        let (dir, fake) = try fakeNmap()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        // PID di un processo già terminato = «app morta».
+        let gone = Process()
+        gone.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+        try gone.run(); gone.waitUntilExit()
+        let script = NmapRunner.privilegedScript(nmapPath: fake.path, arguments: [], targets: ["127.0.0.1"],
+                                                 xml: dir.appending(path: "x.xml").path, err: dir.appending(path: "x.err").path,
+                                                 cancel: dir.appending(path: "x.cancel").path, appPID: gone.processIdentifier)
+        let (p, start) = try run(script)
+        p.waitUntilExit()
+        #expect(Date().timeIntervalSince(start) < 5)
+    }
+
+    @Test func scriptQuotesHostileArguments() {
+        let s = NmapRunner.privilegedScript(nmapPath: "/x/nmap", arguments: ["--script", "a'b"], targets: ["10.0.0.1"],
+                                            xml: "/t/x.xml", err: "/t/x.err", cancel: "/t/x.cancel", appPID: 42)
+        #expect(s.contains("'a'\\''b'"))
+        #expect(s.hasPrefix("'/x/nmap' "))
+    }
+}
+
+@Suite struct PrivateTargetTests {
+    @Test func acceptsPrivateForms() throws {
+        let ok = ["10.0.1.0/24", "192.168.1.1-50", "172.16.0-3.*", "192.168.0.1,5,9", "169.254.1.1",
+                  "100.64.0.0/16", "127.0.0.1", "fe80::1", "fd12:3456::/64", "::1", "localhost"]
+        let out = try PrivateTargets.validate(ok)
+        #expect(out.contains("10.0.1.0/24"))
+        #expect(!out.contains("localhost"), "gli hostname vanno sostituiti dagli IP risolti")
+        #expect(out.contains("127.0.0.1") || out.contains("::1"))
+    }
+
+    @Test func rejectsPublicOrBroadTargets() {
+        for t in ["8.8.8.8", "10.0.0.0/7", "192.168.0.0/15", "172.15.255.255", "172.16-32.0.1", "1.1.1.*",
+                  "2001:4860::8888", "fe80::/9", "0.0.0.0/0"] {
+            #expect(throws: PrivateTargets.Rejection.self, "\(t) deve essere rifiutato") { try PrivateTargets.validate([t]) }
+        }
+    }
+
+    @Test func spanOfNmapRanges() {
+        #expect(PrivateTargets.ipv4Span("10.0.1.1-50")! == (0x0A00_0101, 0x0A00_0132))
+        #expect(PrivateTargets.ipv4Span("10.0.0-3.*")! == (0x0A00_0000, 0x0A00_03FF))
+        #expect(PrivateTargets.ipv4Span("nas.local") == nil)
+    }
+}
