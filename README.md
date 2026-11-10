@@ -113,9 +113,12 @@ Tests/ScanKitTests/       Swift Testing con fixture XML + scan reale di localhos
 - [ ] Discovery Bonjour/mDNS con `Network.framework` per nomi più leggibili (AirPlay, stampanti, HomeKit)
 - [x] Correlazione delle CVE dalle versioni dei servizi (API NVD, facoltativa)
 - [ ] Export PDF nativo (WKWebView + NSPrintOperation)
-- [ ] Scan programmati (`launchd`) e notifiche sui nuovi dispositivi
+- [x] Scansioni programmate e notifiche sui cambiamenti
 - [x] App nella barra dei menu
 - [ ] Mappa visuale della rete
+- [ ] Discovery IPv6
+- [ ] Controllo delle credenziali predefinite (separato, da attivare esplicitamente)
+- [ ] Interfaccia in inglese
 - [x] Icona dell'app
 - [ ] Firma Developer ID e notarizzazione
 
